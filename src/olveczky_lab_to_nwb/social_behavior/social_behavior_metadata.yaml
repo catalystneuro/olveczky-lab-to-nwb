@@ -1,0 +1,32 @@
+# Static metadata for Olveczky Lab social behavior NWB conversion.
+# Fields that vary per session (subject_id, session_start_time, session_id,
+# rat identity, genotype) are set programmatically in convert_session.py.
+
+NWBFile:
+  experiment_description: >
+    Multi-genotype comparison of rat social behavior using 3D pose estimation.
+    Two rats are placed together in an arena and recorded with six synchronized
+    Basler cameras. 3D keypoints are estimated using sDANNCE (social DANNCE).
+    Genotype groups include SCN2A, ARID1B, CHD8, GRINB, NRXN1, and Long-Evans WT.
+  session_description: >
+    Social behavior experiment in the Olveczky Lab. Two rats of defined
+    genotypes were placed together in an arena and their behavior was recorded
+    with a six-camera system. 3D pose estimation was performed using sDANNCE.
+  institution: Harvard University
+  lab: Olveczky
+  experimenter:
+    - Klibaite, Ugne
+  keywords:
+    - rat
+    - social behavior
+    - 3D pose estimation
+    - sDANNCE
+    - DANNCE
+    - multi-camera
+    - skin contacts
+    - Rattus norvegicus
+
+Subject:
+  species: Rattus norvegicus
+  sex: U  # TODO: update from subject metadata spreadsheet (see metadata_request_email.md)
+  # subject_id, date_of_birth, genotype, weight, strain set programmatically
