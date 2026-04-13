@@ -1,7 +1,7 @@
 # Conversion Notes: Olveczky Lab
 
 ## Status
-Phase 1 — Experiment Discovery (in progress)
+Phase 1 — Experiment Discovery (complete); Phase 2 — Data Inspection (up next)
 
 ## Experiment Overview
 The Olveczky Lab (Harvard) studies the neural basis of learned and natural behaviors.
