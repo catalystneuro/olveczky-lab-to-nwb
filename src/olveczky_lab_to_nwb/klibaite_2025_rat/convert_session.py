@@ -1,5 +1,5 @@
 """
-Convert one Olveczky Lab social behavior session to NWB.
+Convert one Klibaite 2025 - Rat social behavior session to NWB.
 
 Produces two NWB files per session — one per rat — both linking to the same
 external video files.
@@ -9,7 +9,7 @@ Session directory naming convention:
 
 Usage
 -----
-python social_behavior_convert_session.py \\
+python convert_session.py \\
     --session_dir  /path/to/2022_09_22_M1_M2 \\
     --output_dir   /path/to/nwb_output \\
     --cohort     SCN2A \\
@@ -21,7 +21,6 @@ python social_behavior_convert_session.py \\
 
 from __future__ import annotations
 
-import argparse
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,12 +29,12 @@ import yaml
 from neuroconv import ConverterPipe
 from neuroconv.datainterfaces import DANNCEInterface
 
-from olveczky_lab_to_nwb.social_behavior.constants import SDANNCE_LANDMARK_NAMES, SDANNCE_SKELETON_EDGES
-from olveczky_lab_to_nwb.social_behavior.interfaces import (
+from olveczky_lab_to_nwb.klibaite_2025_rat.utils.constants import SDANNCE_LANDMARK_NAMES, SDANNCE_SKELETON_EDGES
+from olveczky_lab_to_nwb.klibaite_2025_rat.interfaces import (
     OlveczkyVideoInterface,
     SkinContactsInterface,
 )
-from olveczky_lab_to_nwb.social_behavior.subject_metadata import get_subject_metadata
+from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
 
 # Path to the static metadata YAML (same directory as this script).
 _METADATA_YAML = Path(__file__).parent / "social_behavior_metadata.yaml"
@@ -300,6 +299,7 @@ def convert_session(
 
 
 if __name__ == "__main__":
+    # import argparse
     # parser = argparse.ArgumentParser(description="Convert one Olveczky Lab social behavior session to NWB.")
     # parser.add_argument("--session_dir", type=Path, required=True, help="Path to session folder.")
     # parser.add_argument("--output_dir", type=Path, required=True, help="Output directory for NWB files.")

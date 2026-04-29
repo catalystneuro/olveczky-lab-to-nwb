@@ -1,4 +1,4 @@
-# Conversion Notes: Olveczky Lab
+# Conversion Notes: Klibaite 2025 - Rat
 
 ## Status
 Phase 1 — Experiment Discovery (complete); Phase 2 — Data Inspection (complete);
