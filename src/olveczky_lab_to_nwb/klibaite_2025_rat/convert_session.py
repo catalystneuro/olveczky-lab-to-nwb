@@ -37,7 +37,7 @@ from olveczky_lab_to_nwb.klibaite_2025_rat.interfaces import (
 from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
 
 # Path to the static metadata YAML (same directory as this script).
-_METADATA_YAML = Path(__file__).parent / "social_behavior_metadata.yaml"
+_METADATA_YAML = Path(__file__).parent / "general_metadata.yaml"
 
 
 # ---------------------------------------------------------------------------
