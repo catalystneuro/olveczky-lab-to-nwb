@@ -14,8 +14,16 @@ NWBFile:
     with a six-camera system. 3D pose estimation was performed using sDANNCE.
   institution: Harvard University
   lab: Olveczky
+  related_publications:
+    - "doi:10.1016/j.cell.2025.02.005"
   experimenter:
     - Klibaite, Ugne
+    - Li, Tianqing
+    - Aldarondo, Diego
+    - Alkoad, Jumana
+    - Olveczky, Bence
+    - Dunn, Timothy
+    - Cao, Lily
   keywords:
     - rat
     - social behavior
@@ -28,5 +36,7 @@ NWBFile:
 
 Subject:
   species: Rattus norvegicus
-  sex: U  # TODO: update from subject metadata spreadsheet (see metadata_request_email.md)
-  # subject_id, date_of_birth, genotype, weight, strain set programmatically
+  strain: Long Evans
+  sex: U  # per-rat sex not in spreadsheets; overridden programmatically if available
+  # subject_id, date_of_birth, genotype, weight set programmatically from ugne_rat_log.xlsx
+  # and ugne_recording_info.xlsx via get_subject_metadata()

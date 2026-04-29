@@ -26,14 +26,17 @@ Repository = "https://github.com/catalystneuro/olveczky-lab-to-nwb"
 
 [project.optional-dependencies]
 social_behavior = [
-    # Install neuroconv from branch until DANNCE interface is merged:
-    # pip install "git+https://github.com/catalystneuro/neuroconv.git@add-dannce-interface"
+    # DANNCEInterface is on neuroconv main; install from local clone or main branch:
+    # pip install -e "C:/Users/amtra/CatalystNeuro/neuroconv"
+    # pip install "git+https://github.com/catalystneuro/neuroconv.git@main"
     "neuroconv",
     "ndx-pose>=0.2.0",
     "scipy",
     "h5py",
     "numpy",
     "pandas",
+    "openpyxl",
+    "python-dateutil",
 ]
 
 [tool.hatch.build.targets.wheel]

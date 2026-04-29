@@ -86,6 +86,8 @@ def convert_all_sessions(
     data_root: Path,
     output_dir: Path,
     genotypes: list[str] | None = None,
+    rat_log_path: Path | None = None,
+    recording_info_path: Path | None = None,
     stub_test: bool = False,
 ) -> None:
     """
@@ -101,6 +103,10 @@ def convert_all_sessions(
     genotypes : list of str, optional
         Restrict conversion to these genotype groups.
         Defaults to :data:`DEFAULT_GENOTYPES`.
+    rat_log_path : Path, optional
+        Path to ``ugne_rat_log.xlsx`` for per-rat DOB lookup.
+    recording_info_path : Path, optional
+        Path to ``ugne_recording_info.xlsx`` for genotype (WT/KO) lookup.
     stub_test : bool
         If True, convert only the first 100 frames of every session.
     """
@@ -126,6 +132,8 @@ def convert_all_sessions(
                 genotype=s["genotype"],
                 encounter=s["encounter"],
                 contacts_file=s["contacts_file"],
+                rat_log_path=rat_log_path,
+                recording_info_path=recording_info_path,
                 stub_test=stub_test,
             )
             n_ok += 1
@@ -149,6 +157,10 @@ if __name__ == "__main__":
         default=DEFAULT_GENOTYPES,
         help=f"Genotype groups to convert (default: {DEFAULT_GENOTYPES}).",
     )
+    parser.add_argument("--rat_log_path", type=Path, default=None, help="Path to ugne_rat_log.xlsx.")
+    parser.add_argument(
+        "--recording_info_path", type=Path, default=None, help="Path to ugne_recording_info.xlsx."
+    )
     parser.add_argument("--stub_test", action="store_true", help="Convert only first 100 frames for testing.")
     args = parser.parse_args()
 
@@ -156,5 +168,7 @@ if __name__ == "__main__":
         data_root=args.data_root,
         output_dir=args.output_dir,
         genotypes=args.genotypes,
+        rat_log_path=args.rat_log_path,
+        recording_info_path=args.recording_info_path,
         stub_test=args.stub_test,
     )

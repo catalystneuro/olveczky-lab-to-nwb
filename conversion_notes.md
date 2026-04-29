@@ -1,7 +1,9 @@
 # Conversion Notes: Olveczky Lab
 
 ## Status
-Phase 1 — Experiment Discovery (complete); Phase 2 — Data Inspection (complete)
+Phase 1 — Experiment Discovery (complete); Phase 2 — Data Inspection (complete);
+Phase 3 — Metadata YAML drafted (complete); Phase 4 — Sync analysis (complete);
+Phase 5 — All interfaces written, stub tested (complete); Phase 6 — NWBInspector run on stub (complete)
 
 ## Experiment Overview
 The Olveczky Lab (Harvard) studies the neural basis of learned and natural behaviors.
@@ -19,10 +21,10 @@ Electrophysiology data (flexible probes, Neuropixels, tetrodes) not yet present 
 | Video frame times | .npy | Custom | `videos/CameraX/frametimes.npy` | Custom |
 | Camera metadata | .csv | Custom | `videos/CameraX/metadata.csv` | Custom |
 | Camera calibration | .mat | DANNCE rig | `calibration/hires_camX_params.mat` | Custom |
-| 3D pose estimation (per rat) | .mat (SDANNCE) | sDANNCE/DANNCE | `SDANNCE/bsl0.5_FM_ratX/save_data_AVG.mat` | Custom |
+| 3D pose estimation (per rat) | .mat (SDANNCE) | sDANNCE/DANNCE | `SDANNCE/bsl0.5_FM_ratX/save_data_AVG.mat` | `DANNCEInterface` (neuroconv main) |
 | Center of mass | .mat | DANNCE | `COM/predictXX/com3d*.mat` | Custom |
 | STAC skeleton | .p + videos | STAC | `stac/` | Custom |
-| Skin contacts | .h5 | Custom | `social_touch/.../skin_contacts_symmetric.h5` | Custom |
+| Skin contacts | .h5 | Custom | `social_touch/.../skin_contacts_symmetric.h5` | `SkinContactsInterface` (custom) |
 | Experiment config | .yaml | DANNCE | `io.yaml` | Metadata |
 
 **Future streams (not yet in data share):**
@@ -83,18 +85,43 @@ Per session folder (e.g., 2022_09_22_M1_M2/):
 - ~10–30 sessions per genotype group × encounter round
 
 ## Subjects
-- Species: rat (likely *Rattus norvegicus* — need to confirm strain)
-- Sex: need to confirm
-- IDs per dataset: M1–M12 approx per cohort
-- Two per session (social pairs)
-- Genotypes: SCN2A KO vs WT, ARID1B, CHD8, GRINB, NRXN1; WT = Long-Evans rats
+- Species: *Rattus norvegicus*; strain: **Long-Evans** for all cohorts (confirmed by lab 2026-04-29)
+- KO backgrounds also on Long-Evans
+- IDs per dataset: M1–M12 approx per cohort; unique within cohort
+- Global `subject_id` = `f"{cohort}-{rat_id}"` (e.g., `"SCN2A-M1"`)
+- Sex: not recorded in spreadsheets; set to "U" pending further lab input
+- Weight: approximate range 350–600 g (no per-rat numbers available)
+- DOB: available per cohort in `ugne_rat_log.xlsx` (sheet = cohort name)
+- Genotype (WT/KO): available per rat in `ugne_recording_info.xlsx` ("Recordings, Rats" sheet)
 
 ## Existing Resources
-- Publication: Some behavioral data published on Harvard Dataverse (URL TBD)
+- Publication: Klibaite et al. (2025), *Cell*, DOI: `10.1016/j.cell.2025.02.005`
+- Harvard Dataverse: https://dataverse.harvard.edu/dataverse/socialDANNCE_data
 - GitHub repo: https://github.com/catalystneuro/olveczky-lab-to-nwb (not yet created)
-- Analysis code: TBD
 - Data source: `remoteCN:data/Olveczky-CN-data-share` (Google Drive, shared-with-me)
   → Access via: `rclone lsf/cat "remoteCN:..." --drive-shared-with-me`
+
+## Lab-confirmed metadata (2026-04-29)
+
+Lab contact Lily Cao replied to the metadata request email. Confirmed:
+
+- **Keypoint names (23 joints, rat23 skeleton):** Snout, EarL, EarR, SpineF, SpineM, SpineL,
+  TailBase, ShoulderL, ElbowL, WristL, HandL, ShoulderR, ElbowR, WristR, HandR,
+  HipL, KneeL, AnkleL, FootL, HipR, KneeR, AnkleR, FootR
+  (from `diegoaldarondo/Label3D` rat23.mat)
+- **Skeleton edges:** 23 edges from rat23.mat `joints_idx`, stored in `constants.py`
+- **Frame rate:** 50 fps (confirmed; 30-min sessions → 90000 frames)
+- **Units:** millimeters (same world frame as calibration)
+- **Strain:** Long-Evans for all cohorts
+- **DOB source:** `ugne_rat_log.xlsx` (per-cohort sheet: STRAIN, RAT, DOB YYYYMMDD, MARKINGS)
+- **Genotype (WT/KO) source:** `ugne_recording_info.xlsx` ("Recordings, Rats" sheet:
+  Cohort, Rat ID = `{rat_id}-{cohort}`, Genotype)
+- **Skin contact "symmetric":** touch identification repeated for both rats (symmetric)
+- **Publication DOI:** `10.1016/j.cell.2025.02.005`
+- **Harvard Dataverse URL:** https://dataverse.harvard.edu/dataverse/socialDANNCE_data
+- **Experimenter list (full):** Klibaite Ugne, Li Tianqing, Aldarondo Diego, Alkoad Jumana,
+  Olveczky Bence, Dunn Timothy, Cao Lily
+- **SFARI funding:** grant 272165
 
 ## Phase 2: Data Inspection Findings
 
@@ -121,13 +148,14 @@ Translation z ~1113 mm → camera is ~1.1 m above arena. Coordinate units: mm.
 - `sampleID`: (1, 90000) frame indices 0-based
 - `com`: (90000, 3) float64 — (x, y, z) position in **mm**, world coordinates
 
-### save_data_AVG.mat — SDANNCE 3D pose keypoints
+### save_data_AVG.mat — sDANNCE 3D pose keypoints (per-rat file, single-animal format)
 - `pred`: **(89000, 3, 23)** float64 — (n_frames, xyz, n_keypoints) — **23 keypoints**
 - `data`: (89000, 3, 23) float64 — all zeros (unused / training residuals)
 - `p_max`: (89000, 23) float64 — per-keypoint confidence scores
 - `sampleID`: (1, 89000) float64 — frame indices 0-based
-- Note: 89000 frames vs 90000 in video (SDANNCE drops ~500 frames at each end)
-- **Keypoint names NOT in file** — must be confirmed with lab (standard DANNCE skeleton = 23 joints)
+- Note: 89000 frames vs 90000 in video (sDANNCE drops ~500 frames at each end)
+- **Array is 3D (n_frames, 3, n_landmarks)** — single-animal DANNCE format, NOT 4D
+- **Use `DANNCEInterface` (neuroconv main)**, not `SDANNCEInterface` (which expects 4D)
 - Coordinate units: mm, same world frame as calibration/COM
 
 ### skin_contacts_symmetric.h5 — skin contact events
@@ -136,6 +164,7 @@ Translation z ~1113 mm → camera is ~1.1 m above arena. Coordinate units: mm.
 - `vertex_body_map`: (6880,) object — body-part label per vertex, e.g. `b'walker/foot_R'`
   → 6880 vertices total in the STAC body model; labels use format `walker/<part>`
 - File size: 205 MB (many contact events per session)
+- "symmetric" = touch identification repeated for both rats
 
 ### Folder structure clarified
 - `ugne/social_touch/` contains **only** skin_contacts_symmetric.h5 per session
@@ -150,20 +179,31 @@ Translation z ~1113 mm → camera is ~1.1 m above arena. Coordinate units: mm.
 |------|----------|-------|
 | Video (6 cameras) | `ImageSeries` (external file) | One per camera; timestamps from frametimes.npy row 1 |
 | Camera calibration | `Device` + custom metadata or ndx field | K, r, t, distortion per camera |
-| SDANNCE keypoints (pred) | `PoseEstimation` (ndx-pose) | 3D; shape (n_frames, n_keypoints, 3) after transpose |
-| SDANNCE confidence (p_max) | within PoseEstimationSeries | confidence field |
+| sDANNCE keypoints (pred) | `PoseEstimation` (ndx-pose ≥ 0.2.0) | 3D; uses `DANNCEInterface` from neuroconv main |
+| sDANNCE confidence (p_max) | within PoseEstimationSeries | confidence field |
 | COM 3D position | `SpatialSeries` | (n_frames, 3) in mm |
 | Skin contacts | Custom `DynamicTable` | frame, rat1_vertex, rat2_vertex, body_part1, body_part2 |
 
-**Note on ndx-pose for 3D:** ndx-pose supports 3D PoseEstimation. Need to verify Spyglass
-compatibility with ndx-pose before finalizing.
+**Note on ndx-pose for 3D:** ndx-pose ≥ 0.2.0 supports 3D PoseEstimation. Spyglass
+compatibility confirmed via CatalystNeuro discussions.
 
-## Open Questions
-- [ ] What are the 23 DANNCE/SDANNCE keypoint names in order? (standard skeleton)
-- [ ] Is subject metadata available? (DOB, sex, weight, genotype per animal ID)
-- [ ] Harvard Dataverse link for previously published data?
-- [ ] Electrophysiology data location and format (not yet in data share)
-- [ ] Is ndx-pose installed/supported in target Spyglass version?
-- [ ] Species/strain of rats (Long-Evans assumed for WT; KO strain details needed)
-- [ ] Does `data` field in save_data_AVG.mat have a meaning (all zeros in sample)?
-- [ ] Are ARID1B session timestamps (frametimes.npy) in same format as SCN2A?
+## Phase 5: Interface Implementation Notes
+
+Custom `SDANNCEInterface` wrapper is **removed**. The NeuroConv `DANNCEInterface`
+(merged to main) now natively supports:
+- `frametimes_file_path` parameter (was the wrapper's only added feature)
+- `unit="millimeters"` default
+- `stub_test=True` support in `add_to_nwbfile`
+- `get_metadata` / `get_conversion_options_schema` overrides
+
+The upstream `SDANNCEInterface` (also in neuroconv main) requires a 4D pred array
+(n_frames, n_animals, 3, n_landmarks) in a single combined file — NOT compatible with
+our per-rat 3D files.
+
+Skeleton edges (23 edges from rat23.mat) are injected at conversion time from `constants.py`.
+
+## Open Questions (as of 2026-04-29)
+- [ ] Per-rat sex (not found in either spreadsheet)
+- [ ] Exact session start times of day (frametimes.npy gives elapsed seconds, not wall clock)
+- [ ] Timezone of recording (Edinburgh? Harvard? — need to confirm lab location for sessions)
+- [ ] CHD8, GRINB, NRXN1, LONGEVANS full session data (video + SDANNCE) — not yet in share
