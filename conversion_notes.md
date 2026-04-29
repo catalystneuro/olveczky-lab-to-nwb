@@ -6,6 +6,8 @@ Phase 3 — Metadata YAML drafted (complete); Phase 4 — Sync analysis (complet
 Phase 5 — All interfaces written, stub tested (complete); Phase 6 — NWBInspector run on stub (complete)
 
 ## Experiment Overview
+Reference paper ["Mapping the landscape of social behavior", U. Klibaite et al., 2025](https://www.cell.com/cell/fulltext/S0092-8674(25)00154-0)
+
 The Olveczky Lab (Harvard) studies the neural basis of learned and natural behaviors.
 Point person: **Lily Cao**. Data contact: **Ugne Klibaite** (folder `ugne/` in data share).
 Behavioral setup overlaps substantially with the Uchida lab (same facility; Hannah Phillips).
@@ -89,10 +91,9 @@ Per session folder (e.g., 2022_09_22_M1_M2/):
 - KO backgrounds also on Long-Evans
 - IDs per dataset: M1–M12 approx per cohort; unique within cohort
 - Global `subject_id` = `f"{cohort}-{rat_id}"` (e.g., `"SCN2A-M1"`)
-- Sex: not recorded in spreadsheets; set to "U" pending further lab input
+- Sex: in the subject id `f"M{rat_index}"`--> male /`f"F{rat_index}"`--> female
 - Weight: approximate range 350–600 g (no per-rat numbers available)
 - DOB: available per cohort in `ugne_rat_log.xlsx` (sheet = cohort name)
-- Genotype (WT/KO): available per rat in `ugne_recording_info.xlsx` ("Recordings, Rats" sheet)
 
 ## Existing Resources
 - Publication: Klibaite et al. (2025), *Cell*, DOI: `10.1016/j.cell.2025.02.005`
@@ -112,10 +113,7 @@ Lab contact Lily Cao replied to the metadata request email. Confirmed:
 - **Skeleton edges:** 23 edges from rat23.mat `joints_idx`, stored in `constants.py`
 - **Frame rate:** 50 fps (confirmed; 30-min sessions → 90000 frames)
 - **Units:** millimeters (same world frame as calibration)
-- **Strain:** Long-Evans for all cohorts
-- **DOB source:** `ugne_rat_log.xlsx` (per-cohort sheet: STRAIN, RAT, DOB YYYYMMDD, MARKINGS)
-- **Genotype (WT/KO) source:** `ugne_recording_info.xlsx` ("Recordings, Rats" sheet:
-  Cohort, Rat ID = `{rat_id}-{cohort}`, Genotype)
+- **Subject metadta**: `ugne_rat_log.xlsx`(per-cohort sheet: Strain, Rat ID, DOB, Markings, Mother, Initial Weight, Genotype)
 - **Skin contact "symmetric":** touch identification repeated for both rats (symmetric)
 - **Publication DOI:** `10.1016/j.cell.2025.02.005`
 - **Harvard Dataverse URL:** https://dataverse.harvard.edu/dataverse/socialDANNCE_data
@@ -203,7 +201,6 @@ our per-rat 3D files.
 Skeleton edges (23 edges from rat23.mat) are injected at conversion time from `constants.py`.
 
 ## Open Questions (as of 2026-04-29)
-- [ ] Per-rat sex (not found in either spreadsheet)
 - [ ] Exact session start times of day (frametimes.npy gives elapsed seconds, not wall clock)
 - [ ] Timezone of recording (Edinburgh? Harvard? — need to confirm lab location for sessions)
 - [ ] CHD8, GRINB, NRXN1, LONGEVANS full session data (video + SDANNCE) — not yet in share
