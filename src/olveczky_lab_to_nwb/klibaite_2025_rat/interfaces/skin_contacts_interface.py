@@ -1,5 +1,5 @@
 """
-Skin contacts interface for the Olveczky Lab social behavior conversion.
+Skin contacts interface for the Klibaite 2025 - Rat social behavior conversion.
 
 Reads ``skin_contacts_symmetric.h5`` and writes a DynamicTable into the
 NWB behavior processing module.
@@ -22,7 +22,7 @@ from neuroconv.utils import DeepDict
 
 class SkinContactsInterface(BaseTemporalAlignmentInterface):
     """
-    Skin-contact event interface for Olveczky Lab sessions.
+    Skin-contact event interface for Klibaite 2025 - Rat sessions.
 
     Reads pairwise vertex-contact events computed from sDANNCE body meshes
     and writes them as a :class:`hdmf.common.DynamicTable` in
@@ -120,14 +120,12 @@ class SkinContactsInterface(BaseTemporalAlignmentInterface):
         from neuroconv.tools.nwb_helpers import get_module
 
         with h5py.File(self.contacts_file_path, "r") as f:
-            contacts = f["contacts"][:]        # (N, 2)
-            frames = f["frames"][:]             # (N,)
+            contacts = f["contacts"][:]  # (N, 2)
+            frames = f["frames"][:]  # (N,)
             vertex_body_map_raw = f["vertex_body_map"][:]  # (6880,) object
 
         # Decode body-part labels (stored as bytes).
-        vertex_body_map = np.array(
-            [v.decode("utf-8") if isinstance(v, bytes) else str(v) for v in vertex_body_map_raw]
-        )
+        vertex_body_map = np.array([v.decode("utf-8") if isinstance(v, bytes) else str(v) for v in vertex_body_map_raw])
 
         rat1_vertices = contacts[:, 0]
         rat2_vertices = contacts[:, 1]
@@ -158,10 +156,18 @@ class SkinContactsInterface(BaseTemporalAlignmentInterface):
 
         table.add_column(name="frame_index", description="0-based video frame index.", data=frames.tolist())
         table.add_column(name="timestamp", description="Elapsed seconds from session start.", data=timestamps.tolist())
-        table.add_column(name="rat1_vertex", description="Vertex index on rat1's body mesh.", data=rat1_vertices.tolist())
-        table.add_column(name="rat2_vertex", description="Vertex index on rat2's body mesh.", data=rat2_vertices.tolist())
-        table.add_column(name="rat1_body_part", description="Body-part label for rat1's vertex.", data=rat1_body_parts.tolist())
-        table.add_column(name="rat2_body_part", description="Body-part label for rat2's vertex.", data=rat2_body_parts.tolist())
+        table.add_column(
+            name="rat1_vertex", description="Vertex index on rat1's body mesh.", data=rat1_vertices.tolist()
+        )
+        table.add_column(
+            name="rat2_vertex", description="Vertex index on rat2's body mesh.", data=rat2_vertices.tolist()
+        )
+        table.add_column(
+            name="rat1_body_part", description="Body-part label for rat1's vertex.", data=rat1_body_parts.tolist()
+        )
+        table.add_column(
+            name="rat2_body_part", description="Body-part label for rat2's vertex.", data=rat2_body_parts.tolist()
+        )
 
         behavior_module = get_module(nwbfile=nwbfile, name="behavior", description="Processed behavioral data.")
         behavior_module.add(table)

@@ -1,5 +1,5 @@
 """
-Multi-camera video interface for the Olveczky Lab social behavior conversion.
+Multi-camera video interface for the Klibaite 2025 - Rat social behavior conversion.
 
 Creates one NWB ImageSeries per camera with:
 - external file link to the .mp4 (no data copied into the NWB file)
@@ -20,7 +20,7 @@ from neuroconv.utils import DeepDict
 
 class OlveczkyVideoInterface(BaseTemporalAlignmentInterface):
     """
-    Six-camera video interface for Olveczky Lab sessions.
+    Six-camera video interface for Klibaite 2025 - Rat sessions.
 
     Reads MP4 files and frametimes.npy from the session ``videos/`` directory
     and writes one :class:`pynwb.image.ImageSeries` per camera into
