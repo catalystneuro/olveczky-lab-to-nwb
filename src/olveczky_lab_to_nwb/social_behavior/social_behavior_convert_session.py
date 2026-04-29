@@ -28,12 +28,12 @@ from pathlib import Path
 import numpy as np
 import yaml
 from neuroconv import ConverterPipe
+from neuroconv.datainterfaces import SDANNCEInterface
 from pynwb import NWBFile
 from pynwb.file import Subject
 
 from olveczky_lab_to_nwb.social_behavior.interfaces import (
     OlveczkyVideoInterface,
-    SDANNCEInterface,
     SkinContactsInterface,
 )
 
@@ -44,6 +44,7 @@ _METADATA_YAML = Path(__file__).parent / "social_behavior_metadata.yaml"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def parse_session_folder_name(folder_name: str) -> dict:
     """
@@ -56,8 +57,7 @@ def parse_session_folder_name(folder_name: str) -> dict:
     m = re.match(pattern, folder_name)
     if not m:
         raise ValueError(
-            f"Session folder '{folder_name}' does not match expected pattern "
-            "YYYY_MM_DD_M<rat1>_M<rat2>."
+            f"Session folder '{folder_name}' does not match expected pattern " "YYYY_MM_DD_M<rat1>_M<rat2>."
         )
     year, month, day, rat1_id, rat2_id = m.groups()
     session_date = datetime(int(year), int(month), int(day), tzinfo=timezone.utc)
@@ -101,6 +101,7 @@ def build_nwb_filename(subject_id: str, session_date_str: str, rat1_id: str, rat
 # Per-rat conversion
 # ---------------------------------------------------------------------------
 
+
 def convert_one_rat(
     session_dir: Path,
     output_dir: Path,
@@ -134,12 +135,11 @@ def convert_one_rat(
             file_path=sdannce_mat,
             frametimes_file_path=frametimes_path,
             subject_name=f"rat{rat_idx}",
+            animal_index=rat_idx,
         )
     )
 
-    interfaces.append(
-        OlveczkyVideoInterface(session_videos_dir=session_dir / "videos")
-    )
+    interfaces.append(OlveczkyVideoInterface(session_videos_dir=session_dir / "videos"))
 
     if contacts_file is not None and contacts_file.exists():
         interfaces.append(
@@ -185,10 +185,9 @@ def convert_one_rat(
     nwb_filename = build_nwb_filename(rat_id, session_date_str, rat1_id, rat2_id)
     nwbfile_path = output_dir / nwb_filename
 
-    conversion_options = {
-        iface.__class__.__name__: {"stub_test": stub_test}
-        for iface in interfaces
-    } if stub_test else {}
+    conversion_options = (
+        {iface.__class__.__name__: {"stub_test": stub_test} for iface in interfaces} if stub_test else {}
+    )
 
     converter.run_conversion(
         nwbfile_path=str(nwbfile_path),
@@ -204,6 +203,7 @@ def convert_one_rat(
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
 
 def convert_session(
     session_dir: Path,
@@ -274,9 +274,7 @@ def convert_session(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Convert one Olveczky Lab social behavior session to NWB."
-    )
+    parser = argparse.ArgumentParser(description="Convert one Olveczky Lab social behavior session to NWB.")
     parser.add_argument("--session_dir", type=Path, required=True, help="Path to session folder.")
     parser.add_argument("--output_dir", type=Path, required=True, help="Output directory for NWB files.")
     parser.add_argument("--genotype", type=str, required=True, help="Genotype group (e.g. SCN2A, ARID1B).")

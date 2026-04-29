@@ -1,3 +1,3 @@
-from .interfaces import OlveczkyVideoInterface, SDANNCEInterface, SkinContactsInterface
+from .interfaces import OlveczkyVideoInterface, SkinContactsInterface
 
-__all__ = ["SDANNCEInterface", "OlveczkyVideoInterface", "SkinContactsInterface"]
+__all__ = ["OlveczkyVideoInterface", "SkinContactsInterface"]
