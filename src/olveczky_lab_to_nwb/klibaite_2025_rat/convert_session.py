@@ -318,7 +318,7 @@ if __name__ == "__main__":
     encounter = "SOC1"
     session = "2022_10_17_M1_M2"
     session_dir = data_dir / cohort / f"{cohort}_{encounter}" / session
-    contacts_file = data_dir / "social_touch" / f"{cohort}_{encounter}" / session / "skin_contacts_symmetric.hdf5"
+    contacts_file = data_dir / "social_touch" / f"{cohort}_{encounter}" / session / "skin_contacts_symmetric.h5"
     rat_log_path = data_dir / "ugne_rat_log.xlsx"
     stub_test = True
 

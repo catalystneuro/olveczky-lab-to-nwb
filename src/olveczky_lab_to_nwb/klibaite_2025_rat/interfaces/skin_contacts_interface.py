@@ -1,8 +1,8 @@
 """
 Skin contacts interface for the Klibaite 2025 - Rat social behavior conversion.
 
-Reads ``skin_contacts_symmetric.h5`` and writes a DynamicTable into the
-NWB behavior processing module.
+Reads ``skin_contacts_symmetric.h5`` and writes an ``AnnotatedEventsTable``
+(ndx-events 0.2.2) into the NWB behavior processing module.
 
 File layout (from inspection):
     contacts        (N, 2)  int64  — [rat1_vertex_idx, rat2_vertex_idx]
@@ -17,7 +17,6 @@ import numpy as np
 from pydantic import FilePath, validate_call
 
 from neuroconv.basetemporalalignmentinterface import BaseTemporalAlignmentInterface
-from neuroconv.utils import DeepDict
 
 
 class SkinContactsInterface(BaseTemporalAlignmentInterface):
@@ -25,12 +24,13 @@ class SkinContactsInterface(BaseTemporalAlignmentInterface):
     Skin-contact event interface for Klibaite 2025 - Rat sessions.
 
     Reads pairwise vertex-contact events computed from sDANNCE body meshes
-    and writes them as a :class:`hdmf.common.DynamicTable` in
+    and writes them as an :class:`ndx_events.AnnotatedEventsTable` in
     ``nwbfile.processing["behavior"]``.
 
-    Each row is one contact event, identified by a frame index and the two
-    touching vertex indices (one per rat).  The corresponding body-part labels
-    are resolved from the ``vertex_body_map`` stored in the same file.
+    Each row of the table is one unique ``(rat1_body_part, rat2_body_part)``
+    contact type.  The ``event_times`` column (VectorIndex) holds all
+    timestamps for that contact type, and indexed columns ``frame_indices``,
+    ``rat1_vertices``, and ``rat2_vertices`` carry the per-event details.
 
     Parameters
     ----------
@@ -71,7 +71,7 @@ class SkinContactsInterface(BaseTemporalAlignmentInterface):
         all_ts = frametimes[1]  # elapsed seconds, indexed by 0-based frame number
 
         with h5py.File(self.contacts_file_path, "r") as f:
-            frames = f["frames"][:]  # shape (N,)
+            frames: np.ndarray = np.asarray(f["frames"])  # shape (N,)
 
         return all_ts[frames]
 
@@ -98,33 +98,34 @@ class SkinContactsInterface(BaseTemporalAlignmentInterface):
 
     def add_to_nwbfile(self, nwbfile, metadata: dict | None = None, stub_test: bool = False) -> None:
         """
-        Add a ``SkinContacts`` DynamicTable to the behavior processing module.
+        Add a ``SkinContacts`` AnnotatedEventsTable to the behavior processing module.
 
-        Columns
-        -------
-        start_time, stop_time : float
-            Contact event timestamp (both equal — instantaneous events).
-        frame_index : int
-            0-based video frame index.
-        rat1_vertex : int
-            Vertex index on rat1's body mesh.
-        rat2_vertex : int
-            Vertex index on rat2's body mesh.
-        rat1_body_part : str
-            Body-part label for rat1's vertex (e.g. ``"walker/foot_R"``).
-        rat2_body_part : str
-            Body-part label for rat2's vertex.
+        Table structure (one row per unique body-part contact type)
+        ----------------------------------------------------------
+        event_times : VectorIndex[float]
+            Timestamps (seconds from session start) for each contact event
+            of this type.
+        label : str
+            ``"<rat1_body_part> x <rat2_body_part>"``.
+        event_description : str
+            Human-readable description of the contact type.
+        frame_indices : VectorIndex[int]
+            0-based video frame indices, parallel to ``event_times``.
+        rat1_vertices : VectorIndex[int]
+            Vertex index on rat1's body mesh, parallel to ``event_times``.
+        rat2_vertices : VectorIndex[int]
+            Vertex index on rat2's body mesh, parallel to ``event_times``.
         """
         import h5py
-        from hdmf.common import DynamicTable, VectorData
+        from collections import defaultdict
+        from ndx_events import AnnotatedEventsTable
         from neuroconv.tools.nwb_helpers import get_module
 
         with h5py.File(self.contacts_file_path, "r") as f:
-            contacts = f["contacts"][:]  # (N, 2)
-            frames = f["frames"][:]  # (N,)
-            vertex_body_map_raw = f["vertex_body_map"][:]  # (6880,) object
+            contacts: np.ndarray = np.asarray(f["contacts"])  # (N, 2)
+            frames: np.ndarray = np.asarray(f["frames"])  # (N,)
+            vertex_body_map_raw: np.ndarray = np.asarray(f["vertex_body_map"])  # (6880,) object
 
-        # Decode body-part labels (stored as bytes).
         vertex_body_map = np.array([v.decode("utf-8") if isinstance(v, bytes) else str(v) for v in vertex_body_map_raw])
 
         rat1_vertices = contacts[:, 0]
@@ -143,31 +144,54 @@ class SkinContactsInterface(BaseTemporalAlignmentInterface):
         rat1_body_parts = vertex_body_map[rat1_vertices]
         rat2_body_parts = vertex_body_map[rat2_vertices]
 
-        table = DynamicTable(
+        # Group per-event data by (rat1_body_part, rat2_body_part) contact type.
+        groups: dict[tuple, dict] = defaultdict(
+            lambda: {"event_times": [], "frame_indices": [], "rat1_vertices": [], "rat2_vertices": []}
+        )
+        for i in range(len(timestamps)):
+            key = (rat1_body_parts[i], rat2_body_parts[i])
+            groups[key]["event_times"].append(float(timestamps[i]))
+            groups[key]["frame_indices"].append(int(frames[i]))
+            groups[key]["rat1_vertices"].append(int(rat1_vertices[i]))
+            groups[key]["rat2_vertices"].append(int(rat2_vertices[i]))
+
+        table = AnnotatedEventsTable(
             name="SkinContacts",
             description=(
-                "Pairwise vertex skin-contact events between two rats, "
-                "computed from sDANNCE 3D body meshes.  Each row is one "
-                "instantaneous contact event.  Vertex indices reference the "
-                "STAC body model (6880 vertices total); body-part labels use "
-                "the format 'walker/<part_name>'."
+                "Pairwise body-part skin-contact events between two rats, "
+                "computed from sDANNCE 3D body meshes.  Each row is one unique "
+                "contact type (rat1_body_part × rat2_body_part pair).  "
+                "Vertex indices reference the STAC body model (6880 vertices total); "
+                "body-part labels use the format 'walker/<part_name>'."
             ),
         )
 
-        table.add_column(name="frame_index", description="0-based video frame index.", data=frames.tolist())
-        table.add_column(name="timestamp", description="Elapsed seconds from session start.", data=timestamps.tolist())
+        # Define custom indexed columns before adding any rows.
         table.add_column(
-            name="rat1_vertex", description="Vertex index on rat1's body mesh.", data=rat1_vertices.tolist()
+            name="frame_indices",
+            description="0-based video frame indices for each contact event of this type.",
+            index=True,
         )
         table.add_column(
-            name="rat2_vertex", description="Vertex index on rat2's body mesh.", data=rat2_vertices.tolist()
+            name="rat1_vertices",
+            description="Vertex index on rat1's body mesh for each contact event of this type.",
+            index=True,
         )
         table.add_column(
-            name="rat1_body_part", description="Body-part label for rat1's vertex.", data=rat1_body_parts.tolist()
-        )
-        table.add_column(
-            name="rat2_body_part", description="Body-part label for rat2's vertex.", data=rat2_body_parts.tolist()
+            name="rat2_vertices",
+            description="Vertex index on rat2's body mesh for each contact event of this type.",
+            index=True,
         )
 
-        behavior_module = get_module(nwbfile=nwbfile, name="behavior", description="Processed behavioral data.")
+        for (bp1, bp2), group in sorted(groups.items()):
+            table.add_event_type(
+                label=f"{bp1} x {bp2}",
+                event_description=f"Skin contact between rat1's {bp1} and rat2's {bp2}.",
+                event_times=group["event_times"],
+                frame_indices=group["frame_indices"],
+                rat1_vertices=group["rat1_vertices"],
+                rat2_vertices=group["rat2_vertices"],
+            )
+
+        behavior_module = get_module(nwbfile=nwbfile, name="behavior", description="processed behavioral data")
         behavior_module.add(table)
