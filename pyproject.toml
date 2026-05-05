@@ -37,6 +37,7 @@ social_behavior = [
     "pandas",
     "openpyxl",
     "python-dateutil",
+    "opencv-python-headless",
 ]
 
 [tool.hatch.build.targets.wheel]

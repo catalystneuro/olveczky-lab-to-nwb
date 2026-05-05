@@ -26,15 +26,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
-from neuroconv import ConverterPipe
-from neuroconv.datainterfaces import DANNCEInterface
 
 from olveczky_lab_to_nwb.klibaite_2025_rat.utils.constants import SDANNCE_LANDMARK_NAMES, SDANNCE_SKELETON_EDGES
-from olveczky_lab_to_nwb.klibaite_2025_rat.interfaces import (
-    OlveczkyVideoInterface,
-    SkinContactsInterface,
-)
 from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
+from olveczky_lab_to_nwb.klibaite_2025_rat.nwbconverter import Klibaite2025NWBConverter
 
 # Path to the static metadata YAML (same directory as this script).
 _METADATA_YAML = Path(__file__).parent / "general_metadata.yaml"
@@ -112,7 +107,7 @@ def convert_one_rat(
     stub_test: bool,
 ) -> Path:
     """
-    Build and run the ConverterPipe for one rat, writing one NWB file.
+    Build and run the NWB converter for one rat, writing one NWB file.
 
     Returns
     -------
@@ -120,35 +115,40 @@ def convert_one_rat(
         Path to the written NWB file.
     """
     frametimes_path = session_dir / "videos" / "Camera1" / "frametimes.npy"
-
-    # --- Assemble interfaces ---
-    interfaces: list = []
-
     sdannce_mat = find_sdannce_mat(session_dir, f"rat{rat_idx}")
     pose_key = f"PoseEstimationSDANNCERat{rat_idx}"
-    interfaces.append(
-        DANNCEInterface(
-            file_path=sdannce_mat,
-            frametimes_file_path=frametimes_path,
-            landmark_names=SDANNCE_LANDMARK_NAMES,
-            subject_name=f"rat{rat_idx}",
-            pose_estimation_metadata_key=pose_key,
-        )
-    )
 
-    interfaces.append(OlveczkyVideoInterface(session_videos_dir=session_dir / "videos"))
+    # --- Build source_data ---
+    source_data: dict = {}
+    conversion_options: dict = {}
+
+    source_data["DANNCE"] = dict(
+        file_path=str(sdannce_mat),
+        frametimes_file_path=str(frametimes_path),
+        landmark_names=SDANNCE_LANDMARK_NAMES,
+        subject_name=f"rat{rat_idx}",
+        pose_estimation_metadata_key=pose_key,
+    )
+    conversion_options["DANNCE"] = dict(stub_test=stub_test)
 
     if contacts_file is not None and contacts_file.exists():
-        interfaces.append(
-            SkinContactsInterface(
-                contacts_file_path=contacts_file,
-                frametimes_file_path=frametimes_path,
-            )
+        source_data["SkinContacts"] = dict(
+            contacts_file_path=str(contacts_file),
+            frametimes_file_path=str(frametimes_path),
         )
+        conversion_options["SkinContacts"] = dict(stub_test=stub_test)
     elif contacts_file is not None:
         print(f"  [WARNING] Contacts file not found, skipping: {contacts_file}")
 
-    converter = ConverterPipe(data_interfaces=interfaces)
+    for cam_idx in range(1, 7):
+        mp4 = session_dir / "videos" / f"Camera{cam_idx}" / "0.mp4"
+        if mp4.is_file():
+            source_data[f"VideoCamera{cam_idx}"] = dict(
+                file_paths=[str(mp4)],
+                video_name=f"VideoCamera{cam_idx}",
+            )
+
+    converter = Klibaite2025NWBConverter(source_data=source_data)
 
     # --- Load static metadata and override session-specific fields ---
     with open(_METADATA_YAML) as f:
@@ -175,7 +175,6 @@ def convert_one_rat(
         )
 
     # --- Session metadata ---
-
     session_id = f"{session_date_str}-{cohort}-{encounter}-{rat1_id}-{rat2_id}"
     metadata["NWBFile"]["session_id"] = session_id
     metadata["NWBFile"]["session_start_time"] = session_date.isoformat()
@@ -205,10 +204,6 @@ def convert_one_rat(
     output_dir.mkdir(parents=True, exist_ok=True)
     nwb_filename = f"sub-{subject_id}_ses-{session_id}.nwb"
     nwbfile_path = output_dir / nwb_filename
-
-    conversion_options = (
-        {iface.__class__.__name__: {"stub_test": stub_test} for iface in interfaces} if stub_test else {}
-    )
 
     converter.run_conversion(
         nwbfile_path=nwbfile_path,
