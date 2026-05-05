@@ -8,7 +8,8 @@ from neuroconv.datainterfaces import DANNCEInterface, ExternalVideoInterface
 
 from olveczky_lab_to_nwb.klibaite_2025_rat.interfaces import SkinContactsInterface
 
-_N_CAMERAS = 6
+# One ExternalVideoInterface entry per camera
+_CAMERA_NAMES = [f"VideoCamera{i}" for i in range(1, 7)]
 
 
 class Klibaite2025NWBConverter(NWBConverter):
@@ -38,8 +39,7 @@ class Klibaite2025NWBConverter(NWBConverter):
     def temporally_align_data_interfaces(self, metadata=None, conversion_options=None):
         """Set per-camera timestamps from frametimes.npy files."""
 
-        for cam_idx in range(1, _N_CAMERAS + 1):
-            cam_key = f"VideoCamera{cam_idx}"
+        for cam_key in _CAMERA_NAMES:
             if cam_key not in self.data_interface_objects:
                 continue
             video_interface = self.data_interface_objects[cam_key]
