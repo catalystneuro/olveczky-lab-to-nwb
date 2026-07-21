@@ -30,7 +30,7 @@ social_behavior = [
     # pip install -e "C:/Users/amtra/CatalystNeuro/neuroconv"
     # pip install "git+https://github.com/catalystneuro/neuroconv.git@main"
     "neuroconv",
-    "ndx-pose>=0.2.0",
+    "ndx-pose>=0.4.0",
     "scipy",
     "h5py",
     "numpy",

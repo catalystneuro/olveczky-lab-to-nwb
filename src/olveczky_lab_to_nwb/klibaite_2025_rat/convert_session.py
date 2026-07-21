@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
+from neuroconv.utils import dict_deep_update
 
 from olveczky_lab_to_nwb.klibaite_2025_rat.utils.constants import SDANNCE_LANDMARK_NAMES, SDANNCE_SKELETON_EDGES
 from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
@@ -122,13 +123,25 @@ def convert_one_rat(
     source_data: dict = {}
     conversion_options: dict = {}
 
+    video_file_paths = {}
+    for cam_idx in range(1, 7):
+        mp4 = session_dir / "videos" / f"Camera{cam_idx}" / "0.mp4"
+        if mp4.is_file():
+            video_file_paths[f"Camera{cam_idx}"] = [str(mp4)]
+
     source_data["DANNCE"] = dict(
         file_path=str(sdannce_mat),
+        video_file_paths=video_file_paths,
         frametimes_file_path=str(frametimes_path),
         landmark_names=SDANNCE_LANDMARK_NAMES,
         subject_name=f"rat{rat_idx}",
-        pose_estimation_metadata_key=pose_key,
+        metadata_key=pose_key,
     )
+    calibration_path = session_dir / "calibration"
+    if calibration_path.is_dir():
+        source_data["DANNCE"]["calibration_path"] = str(calibration_path)
+    else:
+        print(f"  [WARNING] Calibration directory not found, skipping camera calibration: {calibration_path}")
     conversion_options["DANNCE"] = dict(stub_test=stub_test)
 
     if contacts_file is not None and contacts_file.exists():
@@ -140,19 +153,15 @@ def convert_one_rat(
     elif contacts_file is not None:
         print(f"  [WARNING] Contacts file not found, skipping: {contacts_file}")
 
-    for cam_idx in range(1, 7):
-        mp4 = session_dir / "videos" / f"Camera{cam_idx}" / "0.mp4"
-        if mp4.is_file():
-            source_data[f"VideoCamera{cam_idx}"] = dict(
-                file_paths=[str(mp4)],
-                video_name=f"VideoCamera{cam_idx}",
-            )
-
     converter = Klibaite2025NWBConverter(source_data=source_data)
 
-    # --- Load static metadata and override session-specific fields ---
+    # --- Start from the converter's auto-generated metadata (required so schema sections
+    # contributed by each interface, e.g. video ExternalVideos/Devices, are present), then
+    # layer the static YAML and session-specific fields on top.
+    metadata = converter.get_metadata()
     with open(_METADATA_YAML) as f:
-        metadata = yaml.safe_load(f)
+        yaml_metadata = yaml.safe_load(f)
+    metadata = dict_deep_update(metadata, yaml_metadata)
 
     # --- Subject metadata ---
     subject_id = f"{cohort}-{rat_id}"
@@ -184,16 +193,17 @@ def convert_one_rat(
         f"session: {rat1_id} (rat1) vs {rat2_id} (rat2)."
     )
 
-    # --- Inject skeleton edges and sDANNCE labels into PoseEstimation metadata ---
+    # --- Inject skeleton edges and sDANNCE labels into Behavior/Pose metadata ---
     # Must include all schema-required fields (name, nodes) so validate_metadata passes.
     # add_to_nwbfile deep-merges this with get_metadata(); edges replaces the empty default.
     skeleton_key = f"Skeleton{pose_key}_{f'rat{rat_idx}'.capitalize()}"
-    metadata.setdefault("PoseEstimation", {}).setdefault("Skeletons", {})[skeleton_key] = {
+    behavior_pose = metadata.setdefault("Behavior", {}).setdefault("Pose", {})
+    behavior_pose.setdefault("Skeletons", {})[skeleton_key] = {
         "name": skeleton_key,
         "nodes": SDANNCE_LANDMARK_NAMES,
         "edges": SDANNCE_SKELETON_EDGES,
     }
-    metadata["PoseEstimation"].setdefault("PoseEstimationContainers", {})[pose_key] = {
+    behavior_pose.setdefault("PoseEstimations", {})[pose_key] = {
         "name": pose_key,
         "source_software": "sDANNCE",
         "scorer": "sDANNCE",
