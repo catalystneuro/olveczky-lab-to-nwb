@@ -8,7 +8,7 @@ NWB conversion scripts, functions, and classes for the [Olveczky Lab](https://ol
 
 Converts multi-genotype social behavior recordings of freely interacting rat pairs, as described in
 [Klibaite et al. (2025), *Cell*](https://www.cell.com/cell/fulltext/S0092-8674(25)00154-0)
-(DOI: [10.1016/j.cell.2025.02.005](https://doi.org/10.1016/j.cell.2025.02.005)).
+(DOI: [10.1016/j.cell.2025.01.044](https://doi.org/10.1016/j.cell.2025.01.044)).
 
 Each session pairs two rats in an arena recorded from 6 synchronized cameras. Every session is
 converted to **two NWB files**, one per rat, both referencing the same external video files.
