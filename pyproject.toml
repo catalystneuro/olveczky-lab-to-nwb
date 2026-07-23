@@ -17,7 +17,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "pynwb",
+    "pynwb>=4.0.0",
     "nwbinspector",
 ]
 

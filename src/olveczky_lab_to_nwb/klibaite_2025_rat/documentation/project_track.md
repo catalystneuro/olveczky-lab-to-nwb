@@ -65,8 +65,10 @@
 
 #### Conversion with Spyglass compatibility
 
-- Skin contacts (`SkinContactsInterface`) → `DynamicTable` in `processing/behavior` (PR TBD)
-  - Columns: frame_index, timestamp, rat1_vertex, rat2_vertex, rat1_body_part, rat2_body_part
+- Skin contacts (`SkinContactsInterface`, subclasses `BaseEventsInterface`) → `pynwb.event.EventsTable`
+  named `SkinContacts` in `nwbfile.events` (`ndx_events.AnnotatedEventsTable` is deprecated)
+  - Columns: timestamp, event_type (`"<rat1_body_part> x <rat2_body_part>"`), frame_index,
+    rat1_vertex, rat2_vertex
 
 #### Ingest in Spyglass
 
