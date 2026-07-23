@@ -7,7 +7,8 @@ NWBFile:
     Multi-genotype comparison of rat social behavior using 3D pose estimation.
     Two rats are placed together in an arena and recorded with six synchronized
     Basler cameras. 3D keypoints are estimated using sDANNCE (social DANNCE).
-    Genotype groups include SCN2A, ARID1B, CHD8, GRINB, NRXN1, and Long-Evans WT.
+    Genotype groups include SCN2A, ARID1B, CHD8, GRINB, NRXN1, and Long-Evans
+    WT.
   session_description: >
     Social behavior experiment in the Olveczky Lab. Two rats of defined
     genotypes were placed together in an arena and their behavior was recorded
@@ -36,7 +37,5 @@ NWBFile:
 
 Subject:
   species: Rattus norvegicus
-  strain: Long Evans
-  sex: U  # per-rat sex not in spreadsheets; overridden programmatically if available
-  # subject_id, date_of_birth, genotype, weight set programmatically from ugne_rat_log.xlsx
+  # strain, sex, subject_id, date_of_birth, genotype, weight set programmatically from ugne_rat_log.xlsx
   # and ugne_recording_info.xlsx via get_subject_metadata()
