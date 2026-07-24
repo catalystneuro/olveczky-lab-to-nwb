@@ -33,9 +33,10 @@ Code for this conversion is located at
 - [`interfaces/skin_contacts_interface.py`](src/olveczky_lab_to_nwb/klibaite_2025_rat/interfaces/skin_contacts_interface.py) —
   custom `SkinContactsInterface` for the lab's `skin_contacts_symmetric.h5` files.
 - [`convert_session.py`](src/olveczky_lab_to_nwb/klibaite_2025_rat/convert_session.py) — converts
-  one session (two rats) to two NWB files.
+  one rat from one session directory to one NWB file.
 - [`convert_all_sessions.py`](src/olveczky_lab_to_nwb/klibaite_2025_rat/convert_all_sessions.py) —
-  discovers and batch-converts all sessions under a data root.
+  discovers all sessions under a data root and converts both rats of each session (two NWB files
+  per session), resolving per-rat subject metadata along the way.
 - [`general_metadata.yaml`](src/olveczky_lab_to_nwb/klibaite_2025_rat/general_metadata.yaml) —
   static NWBFile/Subject/device metadata.
 - [`utils/`](src/olveczky_lab_to_nwb/klibaite_2025_rat/utils) — skeleton/landmark constants and
@@ -62,20 +63,29 @@ pip install -e ".[social_behavior]"
 
 ## Usage
 
-Convert a single session (writes one NWB file per rat):
+Convert a single rat from a session (writes one NWB file):
 
-```bash
-python -m olveczky_lab_to_nwb.klibaite_2025_rat.convert_session \
-    --session_dir  /path/to/2022_09_22_M1_M2 \
-    --output_dir   /path/to/nwb_output \
-    --cohort       SCN2A \
-    --encounter    SOC1 \
-    --rat_log_path /path/to/ugne_rat_log.xlsx \
-    --contacts_file /path/to/social_touch/.../skin_contacts_symmetric.h5 \
-    --stub_test
+```python
+from olveczky_lab_to_nwb.klibaite_2025_rat.convert_session import session_to_nwb
+from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
+from pathlib import Path
+
+rat_log_path = Path("/path/to/ugne_rat_log.xlsx")
+subject_metadata = get_subject_metadata(rat_id="M1", cohort="SCN2A", rat_log_path=rat_log_path)
+
+session_to_nwb(
+    session_dir_path=Path("/path/to/2022_09_22_M1_M2"),
+    output_dir_path=Path("/path/to/nwb_output"),
+    rat_idx=1,
+    cohort="SCN2A",
+    encounter="SOC1",
+    subject_metadata=subject_metadata,
+    contacts_file_path=Path("/path/to/social_touch/.../skin_contacts_symmetric.h5"),
+    stub_test=True,
+)
 ```
 
-Batch-convert all sessions under a data root:
+Batch-convert all sessions under a data root (writes two NWB files per session, one per rat):
 
 ```bash
 python -m olveczky_lab_to_nwb.klibaite_2025_rat.convert_all_sessions \

@@ -32,7 +32,8 @@ import argparse
 import traceback
 from pathlib import Path
 
-from olveczky_lab_to_nwb.klibaite_2025_rat.convert_session import convert_session
+from olveczky_lab_to_nwb.klibaite_2025_rat.convert_session import parse_session_folder_name, session_to_nwb
+from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
 
 # Cohort groups that have full session data (videos + SDANNCE) in the share.
 DEFAULT_COHORTS = ["SCN2A", "ARID1B"]
@@ -123,22 +124,35 @@ def convert_all_sessions(
 
     for i, s in enumerate(sessions, start=1):
         session_output_dir = output_dir / s["cohort"] / s["encounter"]
+        parsed = parse_session_folder_name(s["session_dir"].name)
+        rat_ids = {1: parsed["rat1_id"], 2: parsed["rat2_id"]}
         print(f"[{i}/{len(sessions)}] {s['cohort']} / {s['encounter']} / {s['session_dir'].name}")
-        try:
-            convert_session(
-                session_dir=s["session_dir"],
-                output_dir=session_output_dir,
-                cohort=s["cohort"],
-                encounter=s["encounter"],
-                contacts_file=s["contacts_file"],
-                rat_log_path=rat_log_path,
-                stub_test=stub_test,
-            )
-            n_ok += 1
-        except Exception:
-            print(f"  [ERROR] Conversion failed:")
-            traceback.print_exc()
-            n_fail += 1
+
+        for rat_idx, rat_id in rat_ids.items():
+            print(f"  --- Converting {rat_id} (rat{rat_idx}) ---")
+            subject_metadata = {}
+            if rat_log_path is not None:
+                try:
+                    subject_metadata = get_subject_metadata(rat_id, s["cohort"], rat_log_path)
+                except Exception as exc:
+                    print(f"  [WARNING] Could not load subject metadata for {rat_id}: {exc}")
+
+            try:
+                session_to_nwb(
+                    session_dir_path=s["session_dir"],
+                    output_dir_path=session_output_dir,
+                    rat_idx=rat_idx,
+                    cohort=s["cohort"],
+                    encounter=s["encounter"],
+                    subject_metadata=subject_metadata,
+                    contacts_file_path=s["contacts_file"],
+                    stub_test=stub_test,
+                )
+                n_ok += 1
+            except Exception:
+                print(f"  [ERROR] Conversion failed:")
+                traceback.print_exc()
+                n_fail += 1
 
     print(f"\nDone. {n_ok} succeeded, {n_fail} failed.")
 

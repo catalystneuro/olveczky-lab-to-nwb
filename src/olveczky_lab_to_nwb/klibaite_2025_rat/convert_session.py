@@ -1,22 +1,11 @@
-"""
-Convert one Klibaite 2025 - Rat social behavior session to NWB.
+"""Convert one rat's data from a Klibaite 2025 - Rat social behavior session to NWB.
 
-Produces two NWB files per session — one per rat — both linking to the same
-external video files.
+Each session folder holds data for a pair of rats; this script converts one of
+them (selected via ``rat_idx``) to one NWB file, linking to the shared external
+video files.
 
 Session directory naming convention:
     <data_root>/ugne/<cohort>/<cohort>_SOC<N>/<YYYY_MM_DD_M{rat1}_M{rat2}>/
-
-Usage
------
-python convert_session.py \\
-    --session_dir  /path/to/2022_09_22_M1_M2 \\
-    --output_dir   /path/to/nwb_output \\
-    --cohort     SCN2A \\
-    --encounter    SOC1 \\
-    --rat_log_path /path/to/ugne_rat_log.xlsx \\
-    [--contacts_file /path/to/social_touch/.../skin_contacts_symmetric.h5] \\
-    [--stub_test]
 """
 
 from __future__ import annotations
@@ -24,29 +13,22 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Union
 
 import yaml
 from neuroconv.utils import dict_deep_update
 
-from olveczky_lab_to_nwb.klibaite_2025_rat.utils.constants import SDANNCE_LANDMARK_NAMES, SDANNCE_SKELETON_EDGES
-from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
 from olveczky_lab_to_nwb.klibaite_2025_rat.nwbconverter import Klibaite2025NWBConverter
+from olveczky_lab_to_nwb.klibaite_2025_rat.utils.constants import SDANNCE_LANDMARK_NAMES, SDANNCE_SKELETON_EDGES
 
-# Path to the static metadata YAML (same directory as this script).
-_METADATA_YAML = Path(__file__).parent / "general_metadata.yaml"
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+_GENERAL_METADATA_YAML = Path(__file__).parent / "general_metadata.yaml"
 
 
 def parse_session_folder_name(folder_name: str) -> dict:
-    """
-    Parse a session folder name into its components.
+    """Parse a session folder name into its components.
 
     Expected format: ``YYYY_MM_DD_M{rat1_id}_M{rat2_id}``
-    e.g. ``2022_09_22_M1_M2`` → date 2022-09-22, rat1_id "M1", rat2_id "M2"
+    e.g. ``2022_09_22_M1_M2`` -> date 2022-09-22, rat1_id "M1", rat2_id "M2"
     """
     pattern = r"^(\d{4})_(\d{2})_(\d{2})_(M\w+)_(M\w+)$"
     m = re.match(pattern, folder_name)
@@ -55,25 +37,23 @@ def parse_session_folder_name(folder_name: str) -> dict:
             f"Session folder '{folder_name}' does not match expected pattern " "YYYY_MM_DD_M<rat1>_M<rat2>."
         )
     year, month, day, rat1_id, rat2_id = m.groups()
-    session_date = datetime(int(year), int(month), int(day), tzinfo=timezone.utc)
     return {
-        "session_date": session_date,
+        "session_date": datetime(int(year), int(month), int(day), tzinfo=timezone.utc),
+        "session_date_str": f"{year}{month}{day}",
         "rat1_id": rat1_id,
         "rat2_id": rat2_id,
-        "session_date_str": f"{year}{month}{day}",
     }
 
 
-def find_sdannce_mat(session_dir: Path, rat: str) -> Path:
-    """
-    Find ``save_data_AVG.mat`` for a given rat.
+def find_sdannce_mat(session_dir_path: Path, rat: str) -> Path:
+    """Find ``save_data_AVG.mat`` for a given rat.
 
     Handles both SDANNCE folder naming variants:
     - SCN2A: ``SDANNCE/bsl0.5_FM_rat{N}/``
     - ARID1B: ``SDANNCE_x2/bsl0.5_FM_rat{N}/``
     """
     for sdannce_root_name in ["SDANNCE", "SDANNCE_x2"]:
-        sdannce_root = session_dir / sdannce_root_name
+        sdannce_root = session_dir_path / sdannce_root_name
         if not sdannce_root.exists():
             continue
         for rat_dir in sorted(sdannce_root.iterdir()):
@@ -82,100 +62,119 @@ def find_sdannce_mat(session_dir: Path, rat: str) -> Path:
                 if mat_file.exists():
                     return mat_file
     raise FileNotFoundError(
-        f"Could not find save_data_AVG.mat for '{rat}' in {session_dir}. "
+        f"Could not find save_data_AVG.mat for '{rat}' in {session_dir_path}. "
         "Searched SDANNCE/ and SDANNCE_x2/ subdirectories."
     )
 
 
-# ---------------------------------------------------------------------------
-# Per-rat conversion
-# ---------------------------------------------------------------------------
-
-
-def convert_one_rat(
-    session_dir: Path,
-    output_dir: Path,
+def session_to_nwb(
+    session_dir_path: Union[str, Path],
+    output_dir_path: Union[str, Path],
     rat_idx: int,
-    rat_id: str,
-    rat1_id: str,
-    rat2_id: str,
-    session_date: datetime,
-    session_date_str: str,
     cohort: str,
     encounter: str,
-    contacts_file: Path | None,
-    rat_log_path: Path | None,
-    stub_test: bool,
+    subject_metadata: dict | None = None,
+    contacts_file_path: Union[str, Path, None] = None,
+    stub_test: bool = False,
+    overwrite: bool = True,
+    verbose: bool = False,
 ) -> Path:
-    """
-    Build and run the NWB converter for one rat, writing one NWB file.
+    """Convert one rat from one session directory to one NWB file.
+
+    Parameters
+    ----------
+    session_dir_path : str or Path
+        Path to the session folder (e.g. ``2022_09_22_M1_M2/``), shared by both rats.
+    output_dir_path : str or Path
+        Directory where the NWB file will be written.
+    rat_idx : int
+        Which rat in the pair to convert: 1 or 2.
+    cohort : str
+        Cohort group label (e.g. ``"SCN2A"``, ``"ARID1B"``).
+    encounter : str
+        Encounter round label (e.g. ``"SOC1"``).
+    subject_metadata : dict, optional
+        Per-rat NWB Subject fields (sex, date_of_birth, strain, genotype, etc.).
+        When not provided, a minimal subject_id/description is generated instead.
+    contacts_file_path : str or Path, optional
+        Path to ``skin_contacts_symmetric.h5``. If None or missing, the skin
+        contacts interface is skipped.
+    stub_test : bool
+        If True, convert only the first 100 frames for quick testing.
+    overwrite : bool
+        If True, overwrite an existing NWB file at the output path.
+    verbose : bool
+        Pass-through to converter interfaces.
 
     Returns
     -------
     Path
         Path to the written NWB file.
     """
-    sdannce_mat = find_sdannce_mat(session_dir, f"rat{rat_idx}")
+    session_dir_path = Path(session_dir_path)
+    output_dir_path = Path(output_dir_path)
+    if stub_test:
+        output_dir_path = output_dir_path / "nwb_stub"
+    output_dir_path.mkdir(parents=True, exist_ok=True)
+
+    parsed = parse_session_folder_name(session_dir_path.name)
+    session_date = parsed["session_date"]
+    session_date_str = parsed["session_date_str"]
+    rat1_id, rat2_id = parsed["rat1_id"], parsed["rat2_id"]
+    rat_id, paired_rat_id = (rat1_id, rat2_id) if rat_idx == 1 else (rat2_id, rat1_id)
+
+    sdannce_mat = find_sdannce_mat(session_dir_path, f"rat{rat_idx}")
     pose_key = "PoseEstimationSDANNCE"
 
-    # --- Build source_data ---
+    # ── Build source_data ────────────────────────────────────────────────────
     source_data: dict = {}
     conversion_options: dict = {}
 
     source_data["DANNCE"] = dict(
         file_path=str(sdannce_mat),
-        videos_folder_path=session_dir / "videos",
+        videos_folder_path=session_dir_path / "videos",
         landmark_names=SDANNCE_LANDMARK_NAMES,
         subject_name=f"rat{rat_idx}",
         metadata_key=pose_key,
     )
-    calibration_path = session_dir / "calibration"
+    calibration_path = session_dir_path / "calibration"
     if calibration_path.is_dir():
         source_data["DANNCE"]["calibration_path"] = str(calibration_path)
     else:
         print(f"  [WARNING] Calibration directory not found, skipping camera calibration: {calibration_path}")
     conversion_options["DANNCE"] = dict(stub_test=stub_test)
 
-    if contacts_file is not None and contacts_file.exists():
-        source_data["SkinContacts"] = dict(
-            contacts_file_path=str(contacts_file),
-            frametimes_file_path=str(session_dir / "videos" / "Camera1" / "frametimes.npy"),
-        )
-        conversion_options["SkinContacts"] = dict(stub_test=stub_test)
-    elif contacts_file is not None:
-        print(f"  [WARNING] Contacts file not found, skipping: {contacts_file}")
+    if contacts_file_path is not None:
+        contacts_file_path = Path(contacts_file_path)
+        if contacts_file_path.exists():
+            source_data["SkinContacts"] = dict(
+                contacts_file_path=str(contacts_file_path),
+                frametimes_file_path=str(session_dir_path / "videos" / "Camera1" / "frametimes.npy"),
+            )
+            conversion_options["SkinContacts"] = dict(stub_test=stub_test)
+        else:
+            print(f"  [WARNING] Contacts file not found, skipping: {contacts_file_path}")
 
-    converter = Klibaite2025NWBConverter(source_data=source_data)
+    # ── Instantiate converter ────────────────────────────────────────────────
+    converter = Klibaite2025NWBConverter(source_data=source_data, verbose=verbose)
 
-    # --- Start from the converter's auto-generated metadata (required so schema sections
+    # ── Build metadata (layered) ─────────────────────────────────────────────
+    # Start from the converter's auto-generated metadata (required so schema sections
     # contributed by each interface, e.g. video ExternalVideos/Devices, are present), then
     # layer the static YAML and session-specific fields on top.
     metadata = converter.get_metadata()
-    with open(_METADATA_YAML) as f:
-        yaml_metadata = yaml.safe_load(f)
-    metadata = dict_deep_update(metadata, yaml_metadata)
+    with open(_GENERAL_METADATA_YAML) as f:
+        metadata = dict_deep_update(metadata, yaml.safe_load(f))
 
-    # --- Subject metadata ---
     subject_id = f"{cohort}-{rat_id}"
-    if rat_log_path is not None:
-        try:
-            subj = get_subject_metadata(rat_id, cohort, rat_log_path)
-            metadata["Subject"].update(subj)
-        except (KeyError, Exception) as exc:
-            print(f"  [WARNING] Could not load subject metadata for {rat_id}: {exc}")
-            metadata["Subject"]["subject_id"] = subject_id
-            metadata["Subject"]["description"] = (
-                f"Rat {rat_id}, cohort group {cohort}. "
-                f"Paired with {rat2_id if rat_idx == 1 else rat1_id} in this session."
-            )
+    if subject_metadata:
+        metadata["Subject"] = dict_deep_update(metadata["Subject"], subject_metadata)
     else:
         metadata["Subject"]["subject_id"] = subject_id
-        metadata["Subject"]["description"] = (
-            f"Rat {rat_id}, cohort group {cohort}. "
-            f"Paired with {rat2_id if rat_idx == 1 else rat1_id} in this session."
-        )
+        metadata["Subject"][
+            "description"
+        ] = f"Rat {rat_id}, cohort group {cohort}. Paired with {paired_rat_id} in this session."
 
-    # --- Session metadata ---
     session_id = f"{session_date_str}-{cohort}-{encounter}-{rat1_id}-{rat2_id}"
     metadata["NWBFile"]["session_id"] = session_id
     metadata["NWBFile"]["session_start_time"] = session_date.isoformat()
@@ -185,9 +184,9 @@ def convert_one_rat(
         f"session: {rat1_id} (rat1) vs {rat2_id} (rat2)."
     )
 
-    # --- Inject skeleton edges and sDANNCE labels into Behavior/Pose metadata ---
-    # Must include all schema-required fields (name, nodes) so validate_metadata passes.
-    # add_to_nwbfile deep-merges this with get_metadata(); edges replaces the empty default.
+    # Inject skeleton edges and sDANNCE labels into Behavior/Pose metadata. Must include all
+    # schema-required fields (name, nodes) so validate_metadata passes; add_to_nwbfile deep-merges
+    # this with get_metadata(), and edges replaces the empty default.
     skeleton_key = f"Skeleton{pose_key}_{f'rat{rat_idx}'.capitalize()}"
     behavior_pose = metadata.setdefault("Behavior", {}).setdefault("Pose", {})
     behavior_pose.setdefault("Skeletons", {})[skeleton_key] = {
@@ -202,117 +201,23 @@ def convert_one_rat(
         "description": "3D keypoint coordinates estimated using sDANNCE (social DANNCE).",
     }
 
-    # --- Write NWB file ---
-    output_dir.mkdir(parents=True, exist_ok=True)
-    nwb_filename = f"sub-{subject_id}_ses-{session_id}.nwb"
-    nwbfile_path = output_dir / nwb_filename
+    # ── Run conversion ───────────────────────────────────────────────────────
+    nwbfile_path = output_dir_path / f"sub-{subject_id}_ses-{session_id}.nwb"
 
     converter.run_conversion(
         nwbfile_path=nwbfile_path,
         metadata=metadata,
         conversion_options=conversion_options,
-        overwrite=True,
+        overwrite=overwrite,
     )
+    if verbose:
+        print(f"Wrote {nwbfile_path}")
 
-    print(f"  Written: {nwbfile_path}")
     return nwbfile_path
 
 
-# ---------------------------------------------------------------------------
-# Main entry point
-# ---------------------------------------------------------------------------
-
-
-def convert_session(
-    session_dir: Path,
-    output_dir: Path,
-    cohort: str,
-    encounter: str,
-    contacts_file: Path | None = None,
-    rat_log_path: Path | None = None,
-    stub_test: bool = False,
-) -> list[Path]:
-    """
-    Convert one session to two NWB files (one per rat).
-
-    Parameters
-    ----------
-    session_dir : Path
-        Path to the session folder (e.g., ``2022_09_22_M1_M2/``).
-    output_dir : Path
-        Directory where NWB files will be written.
-    cohort : str
-        Cohort group label (e.g., ``"SCN2A"``, ``"ARID1B"``).
-    encounter : str
-        Encounter round label (e.g., ``"SOC1"``).
-    contacts_file : Path, optional
-        Path to ``skin_contacts_symmetric.h5``.  If None, the skin contacts
-        interface is skipped.
-    rat_log_path : Path, optional
-        Path to ``ugne_rat_log.xlsx`` for per-rat DOB lookup.
-    stub_test : bool
-        If True, convert only the first 100 frames for quick testing.
-
-    Returns
-    -------
-    list[Path]
-        Paths to the two written NWB files.
-    """
-    session_dir = Path(session_dir)
-    output_dir = Path(output_dir)
-
-    parsed = parse_session_folder_name(session_dir.name)
-    session_date = parsed["session_date"]
-    session_date_str = parsed["session_date_str"]
-    rat1_id = parsed["rat1_id"]
-    rat2_id = parsed["rat2_id"]
-
-    print(f"Converting session: {session_dir.name}")
-    print(f"  Cohort: {cohort}, Encounter: {encounter}")
-    print(f"  Rats: {rat1_id} (rat1), {rat2_id} (rat2)")
-    print(f"  Stub test: {stub_test}")
-
-    output_paths = []
-    for rat_idx, rat_id in [(1, rat1_id), (2, rat2_id)]:
-        print(f"\n  --- Converting {rat_id} (rat{rat_idx}) ---")
-        path = convert_one_rat(
-            session_dir=session_dir,
-            output_dir=output_dir,
-            rat_idx=rat_idx,
-            rat_id=rat_id,
-            rat1_id=rat1_id,
-            rat2_id=rat2_id,
-            session_date=session_date,
-            session_date_str=session_date_str,
-            cohort=cohort,
-            encounter=encounter,
-            contacts_file=contacts_file,
-            rat_log_path=rat_log_path,
-            stub_test=stub_test,
-        )
-        output_paths.append(path)
-
-    return output_paths
-
-
 if __name__ == "__main__":
-    # import argparse
-    # parser = argparse.ArgumentParser(description="Convert one Olveczky Lab social behavior session to NWB.")
-    # parser.add_argument("--session_dir", type=Path, required=True, help="Path to session folder.")
-    # parser.add_argument("--output_dir", type=Path, required=True, help="Output directory for NWB files.")
-    # parser.add_argument("--cohort", type=str, required=True, help="Cohort group (e.g. SCN2A, ARID1B).")
-    # parser.add_argument("--encounter", type=str, required=True, help="Encounter round (e.g. SOC1, SOC2).")
-    # parser.add_argument("--contacts_file", type=Path, default=None, help="Path to skin_contacts_symmetric.h5.")
-    # parser.add_argument("--rat_log_path", type=Path, default=None, help="Path to ugne_rat_log.xlsx.")
-    # parser.add_argument("--stub_test", action="store_true", help="Convert only first 100 frames for testing.")
-    # args = parser.parse_args()
-    # session_dir = args.session_dir
-    # output_dir = args.output_dir
-    # cohort = args.cohort
-    # encounter = args.encounter
-    # contacts_file = args.contacts_file
-    # rat_log_path = args.rat_log_path
-    # stub_test = args.stub_test
+    from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
 
     data_dir = Path("H:/Olveczky-CN-data-share/ugne")
     output_dir = Path("H:/olveczky-nwbfiles")
@@ -322,14 +227,17 @@ if __name__ == "__main__":
     session_dir = data_dir / cohort / f"{cohort}_{encounter}" / session
     contacts_file = data_dir / "social_touch" / f"{cohort}_{encounter}" / session / "skin_contacts_symmetric.h5"
     rat_log_path = data_dir / "ugne_rat_log.xlsx"
-    stub_test = True
 
-    convert_session(
-        session_dir=session_dir,
-        output_dir=output_dir,
+    subject_metadata = get_subject_metadata(rat_id="M1", cohort=cohort, rat_log_path=rat_log_path)
+
+    session_to_nwb(
+        session_dir_path=session_dir,
+        output_dir_path=output_dir,
+        rat_idx=1,
         cohort=cohort,
         encounter=encounter,
-        contacts_file=contacts_file,
-        rat_log_path=rat_log_path,
-        stub_test=stub_test,
+        subject_metadata=subject_metadata,
+        contacts_file_path=contacts_file,
+        stub_test=True,
+        verbose=True,
     )
