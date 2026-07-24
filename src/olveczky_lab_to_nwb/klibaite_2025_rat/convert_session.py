@@ -115,24 +115,16 @@ def convert_one_rat(
     Path
         Path to the written NWB file.
     """
-    frametimes_path = session_dir / "videos" / "Camera1" / "frametimes.npy"
     sdannce_mat = find_sdannce_mat(session_dir, f"rat{rat_idx}")
-    pose_key = f"PoseEstimationSDANNCERat{rat_idx}"
+    pose_key = "PoseEstimationSDANNCE"
 
     # --- Build source_data ---
     source_data: dict = {}
     conversion_options: dict = {}
 
-    video_file_paths = {}
-    for cam_idx in range(1, 7):
-        mp4 = session_dir / "videos" / f"Camera{cam_idx}" / "0.mp4"
-        if mp4.is_file():
-            video_file_paths[f"Camera{cam_idx}"] = [str(mp4)]
-
     source_data["DANNCE"] = dict(
         file_path=str(sdannce_mat),
-        video_file_paths=video_file_paths,
-        frametimes_file_path=str(frametimes_path),
+        videos_folder_path=session_dir / "videos",
         landmark_names=SDANNCE_LANDMARK_NAMES,
         subject_name=f"rat{rat_idx}",
         metadata_key=pose_key,
@@ -147,7 +139,7 @@ def convert_one_rat(
     if contacts_file is not None and contacts_file.exists():
         source_data["SkinContacts"] = dict(
             contacts_file_path=str(contacts_file),
-            frametimes_file_path=str(frametimes_path),
+            frametimes_file_path=str(session_dir / "videos" / "Camera1" / "frametimes.npy"),
         )
         conversion_options["SkinContacts"] = dict(stub_test=stub_test)
     elif contacts_file is not None:

@@ -27,21 +27,3 @@ class Klibaite2025NWBConverter(NWBConverter):
         DANNCE=DANNCEConverter,
         SkinContacts=SkinContactsInterface,
     )
-
-    def temporally_align_data_interfaces(self, metadata=None, conversion_options=None):
-        """Set per-camera timestamps from frametimes.npy files."""
-
-        dannce_converter = self.data_interface_objects.get("DANNCE")
-        if dannce_converter is None:
-            return
-
-        for interface_name, video_interface in dannce_converter.data_interface_objects.items():
-            if not interface_name.startswith("Video"):
-                continue
-            video_file_path = Path(video_interface.source_data["file_paths"][0])
-            camera_dir = video_file_path.parent
-            frametimes_file_path = camera_dir / "frametimes.npy"
-            frametimes = np.load(str(frametimes_file_path))
-            cam_timestamps = frametimes[1]  # row 1 = elapsed seconds
-            # ExternalVideoInterface expects a list-of-arrays, one per video file
-            video_interface.set_aligned_timestamps([cam_timestamps])
