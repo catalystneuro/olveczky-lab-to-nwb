@@ -186,10 +186,13 @@ def session_to_nwb(
 
     # Inject skeleton edges and sDANNCE labels into Behavior/Pose metadata. Must include all
     # schema-required fields (name, nodes) so validate_metadata passes; add_to_nwbfile deep-merges
-    # this with get_metadata(), and edges replaces the empty default.
+    # this with get_metadata() via DeepDict.deep_update (a key-for-key merge, not name-based), and
+    # DANNCEInterface looks up the skeleton via PoseEstimations[pose_key]["skeleton_metadata_key"]
+    # (which defaults to pose_key) -- so the override below MUST be keyed by pose_key itself (not
+    # the Skeleton's descriptive "name" field) for edges to actually replace the empty default.
     skeleton_key = f"Skeleton{pose_key}_{f'rat{rat_idx}'.capitalize()}"
     behavior_pose = metadata.setdefault("Behavior", {}).setdefault("Pose", {})
-    behavior_pose.setdefault("Skeletons", {})[skeleton_key] = {
+    behavior_pose.setdefault("Skeletons", {})[pose_key] = {
         "name": skeleton_key,
         "nodes": SDANNCE_LANDMARK_NAMES,
         "edges": SDANNCE_SKELETON_EDGES,
