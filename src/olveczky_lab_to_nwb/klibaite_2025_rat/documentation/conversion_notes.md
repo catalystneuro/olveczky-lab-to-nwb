@@ -210,7 +210,5 @@ Internal code/repo work, not blocked on the lab:
 - **Sex inference**: `get_subject_metadata()` could derive sex from the rat ID (`M{n}` prefix in
   the log is a rat index, not a sex marker in this dataset — confirm before attempting to infer
   sex from ID text).
-- **Batch conversion for CHD8/GRIN2B/NRXN1/Long-Evans WT** once full session data is uploaded —
-  `convert_all_sessions.py::DEFAULT_COHORTS` will need to be extended.
 - **Ephys and fiber photometry interfaces** — placeholders only; no design work started, pending
   the lab collecting and sharing this data.

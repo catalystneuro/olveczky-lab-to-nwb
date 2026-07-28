@@ -45,6 +45,17 @@ def parse_session_folder_name(folder_name: str) -> dict:
     }
 
 
+def _encounter_to_label(encounter: str) -> str:
+    """Convert an encounter round code to a session_id label.
+
+    e.g. ``"SOC1"`` -> ``"day-1-social"``, ``"SOC12"`` -> ``"day-12-social"``.
+    """
+    m = re.match(r"^SOC(\d+)$", encounter)
+    if not m:
+        raise ValueError(f"Encounter '{encounter}' does not match expected pattern 'SOC<N>'.")
+    return f"day-{m.group(1)}-social"
+
+
 def find_sdannce_mat(session_dir_path: Path, rat: str) -> Path:
     """Find ``save_data_AVG.mat`` for a given rat.
 
@@ -115,13 +126,21 @@ def session_to_nwb(
     output_dir_path = Path(output_dir_path)
     if stub_test:
         output_dir_path = output_dir_path / "nwb_stub"
-    output_dir_path.mkdir(parents=True, exist_ok=True)
 
     parsed = parse_session_folder_name(session_dir_path.name)
     session_date = parsed["session_date"]
     session_date_str = parsed["session_date_str"]
     rat1_id, rat2_id = parsed["rat1_id"], parsed["rat2_id"]
     rat_id, paired_rat_id = (rat1_id, rat2_id) if rat_idx == 1 else (rat2_id, rat1_id)
+
+    subject_id = f"{cohort}-{rat_id}"
+    encounter_label = _encounter_to_label(encounter)
+    session_id = f"{encounter_label}-{rat1_id}-{rat2_id}-{session_date_str}"
+
+    output_dir_path = output_dir_path / f"sub-{subject_id}"
+    output_dir_path.mkdir(parents=True, exist_ok=True)
+
+    nwbfile_path = output_dir_path / f"sub-{subject_id}_ses-{session_id}.nwb"
 
     sdannce_mat = find_sdannce_mat(session_dir_path, f"rat{rat_idx}")
     pose_key = "PoseEstimationSDANNCE"
@@ -166,7 +185,6 @@ def session_to_nwb(
     with open(_GENERAL_METADATA_YAML) as f:
         metadata = dict_deep_update(metadata, yaml.safe_load(f))
 
-    subject_id = f"{cohort}-{rat_id}"
     if subject_metadata:
         metadata["Subject"] = dict_deep_update(metadata["Subject"], subject_metadata)
     else:
@@ -175,7 +193,6 @@ def session_to_nwb(
             "description"
         ] = f"Rat {rat_id}, cohort group {cohort}. Paired with {paired_rat_id} in this session."
 
-    session_id = f"{session_date_str}-{cohort}-{encounter}-{rat1_id}-{rat2_id}"
     metadata["NWBFile"]["session_id"] = session_id
     metadata["NWBFile"]["session_start_time"] = session_date.isoformat()
     metadata["NWBFile"]["session_description"] = (
@@ -205,8 +222,6 @@ def session_to_nwb(
     }
 
     # ── Run conversion ───────────────────────────────────────────────────────
-    nwbfile_path = output_dir_path / f"sub-{subject_id}_ses-{session_id}.nwb"
-
     converter.run_conversion(
         nwbfile_path=nwbfile_path,
         metadata=metadata,

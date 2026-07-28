@@ -36,7 +36,7 @@ from olveczky_lab_to_nwb.klibaite_2025_rat.convert_session import parse_session_
 from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
 
 # Cohort groups that have full session data (videos + SDANNCE) in the share.
-DEFAULT_COHORTS = ["SCN2A", "ARID1B"]
+DEFAULT_COHORTS = ["SCN2A", "ARID1B", "CHD8", "GRINB", "LONGEVANS", "NRXN1"]
 
 
 def discover_sessions(data_root: Path, cohorts: list[str]) -> list[dict]:
@@ -123,7 +123,6 @@ def convert_all_sessions(
     n_fail = 0
 
     for i, s in enumerate(sessions, start=1):
-        session_output_dir = output_dir / s["cohort"] / s["encounter"]
         parsed = parse_session_folder_name(s["session_dir"].name)
         rat_ids = {1: parsed["rat1_id"], 2: parsed["rat2_id"]}
         print(f"[{i}/{len(sessions)}] {s['cohort']} / {s['encounter']} / {s['session_dir'].name}")
@@ -140,7 +139,7 @@ def convert_all_sessions(
             try:
                 session_to_nwb(
                     session_dir_path=s["session_dir"],
-                    output_dir_path=session_output_dir,
+                    output_dir_path=output_dir,
                     rat_idx=rat_idx,
                     cohort=s["cohort"],
                     encounter=s["encounter"],
@@ -158,23 +157,14 @@ def convert_all_sessions(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Batch-convert Olveczky Lab social behavior sessions to NWB.")
-    parser.add_argument("--data_root", type=Path, required=True, help="Path to ugne/ data directory.")
-    parser.add_argument("--output_dir", type=Path, required=True, help="Root output directory for NWB files.")
-    parser.add_argument(
-        "--cohorts",
-        nargs="+",
-        default=DEFAULT_COHORTS,
-        help=f"Cohort to convert (default: {DEFAULT_COHORTS}).",
-    )
-    parser.add_argument("--rat_log_path", type=Path, default=None, help="Path to ugne_rat_log.xlsx.")
-    parser.add_argument("--stub_test", action="store_true", help="Convert only first 100 frames for testing.")
-    args = parser.parse_args()
+    data_dir = Path("H:/Olveczky-CN-data-share/ugne")
+    output_dir = Path("H:/olveczky-nwbfiles")
+    rat_log_path = data_dir / "ugne_rat_log.xlsx"
 
     convert_all_sessions(
-        data_root=args.data_root,
-        output_dir=args.output_dir,
-        cohorts=args.cohorts,
-        rat_log_path=args.rat_log_path,
-        stub_test=args.stub_test,
+        data_root=data_dir,
+        output_dir=output_dir,
+        cohorts=None,
+        rat_log_path=rat_log_path,
+        stub_test=True,
     )
