@@ -2,7 +2,7 @@
 Batch-convert all Klibaite 2025 - Rat social behavior sessions to NWB.
 
 Walks the data root, discovers all cohort groups and encounter rounds, and
-calls ``convert_session`` for each session folder.
+calls ``session_to_nwb`` for each rat within each session folder.
 
 Data root layout expected:
     <data_root>/ugne/
@@ -16,41 +16,69 @@ Data root layout expected:
         <cohort>_SOC<N>/
             <YYYY_MM_DD_M{a}_M{b}>/
                 skin_contacts_symmetric.h5
-
-Usage
------
-python social_behavior_convert_all_sessions.py \\
-    --data_root  /path/to/ugne \\
-    --output_dir /path/to/nwb_output \\
-    [--cohorts SCN2A ARID1B] \\
-    [--stub_test]
 """
 
 from __future__ import annotations
 
-import argparse
+import re
 import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
+from pprint import pformat
+from typing import Union
+
+from tqdm import tqdm
 
 from olveczky_lab_to_nwb.klibaite_2025_rat.convert_session import parse_session_folder_name, session_to_nwb
 from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
 
 # Cohort groups that have full session data (videos + SDANNCE) in the share.
-DEFAULT_COHORTS = ["SCN2A", "ARID1B", "CHD8", "GRINB", "LONGEVANS", "NRXN1"]
+DEFAULT_COHORTS = [
+    "SCN2A",
+    "ARID1B",
+    "CHD8",
+    "GRINB",
+    "NRXN1",
+    "LONGEVANS",
+]  # LONGEVANS skipping for now need clarification
 
 
-def discover_sessions(data_root: Path, cohorts: list[str]) -> list[dict]:
+def get_session_to_nwb_kwargs_per_session(
+    *,
+    data_dir_path: Union[str, Path],
+    cohorts: list[str] | None = None,
+    rat_log_path: Union[str, Path, None] = None,
+) -> list[dict]:
+    """Discover all sessions (one entry per rat per session) and return kwargs for each.
+
+    Parameters
+    ----------
+    data_dir_path : str or Path
+        Path to the ``ugne/`` directory (contains cohort subdirectories).
+    cohorts : list of str, optional
+        Restrict conversion to these cohort groups.
+        Defaults to :data:`DEFAULT_COHORTS`.
+    rat_log_path : str or Path, optional
+        Path to ``ugne_rat_log.xlsx`` for per-rat DOB lookup. When omitted, or
+        when a rat is missing from the log, that rat's NWB Subject metadata
+        falls back to the converter's placeholders.
+
+    Returns
+    -------
+    list of dict
+        One dict per rat-session containing kwargs for `session_to_nwb`.
     """
-    Walk the data root and return a list of session dicts.
+    data_dir_path = Path(data_dir_path)
+    if rat_log_path is not None:
+        rat_log_path = Path(rat_log_path)
+    if cohorts is None:
+        cohorts = DEFAULT_COHORTS
 
-    Each dict has keys:
-        session_dir, cohort, encounter, contacts_file (Path or None)
-    """
-    sessions = []
-    social_touch_root = data_root / "social_touch"
+    social_touch_root = data_dir_path / "social_touch"
 
+    kwargs_list = []
     for cohort in cohorts:
-        cohort_dir = data_root / cohort
+        cohort_dir = data_dir_path / cohort
         if not cohort_dir.exists():
             print(f"[SKIP] Cohort directory not found: {cohort_dir}")
             continue
@@ -59,112 +87,154 @@ def discover_sessions(data_root: Path, cohorts: list[str]) -> list[dict]:
             if not encounter_dir.is_dir() or encounter_dir.name.startswith("."):
                 continue
 
-            # Parse encounter round from folder name, e.g. "SCN2A_SOC1" → "SOC1"
-            encounter = encounter_dir.name.replace(f"{cohort}_", "")
+            # Parse encounter round from folder name, e.g. "SCN2A_SOC1" -> "SOC1",
+            # "LONGEVANS_M_SOC1" -> "SOC1" (LONGEVANS folders have an extra "M" segment).
+            encounter_match = re.search(r"(SOC\d+)$", encounter_dir.name)
+            if encounter_match is None:
+                # e.g. LONGEVANS_M (solo baseline) / LONGEVANS_M_AMP (amphetamine, solo) folders:
+                # not a two-rat social encounter, out of scope for this pair-based pipeline.
+                print(f"  [SKIP] Encounter folder is not a social (SOC<N>) round, skipping: {encounter_dir}")
+                continue
+            encounter = encounter_match.group(1)
 
             for session_dir in sorted(encounter_dir.iterdir()):
                 if not session_dir.is_dir() or session_dir.name.startswith("."):
                     continue
 
-                # Look for the corresponding skin contacts file in social_touch/.
-                contacts_file = (
-                    social_touch_root / f"{cohort}_{encounter}" / session_dir.name / "skin_contacts_symmetric.h5"
+                # Look for the corresponding skin contacts file in social_touch/. The social_touch
+                # subfolder name matches the raw encounter_dir name (e.g. "LONGEVANS_M_SOC6", not
+                # the reconstructed "LONGEVANS_SOC6"), so use encounter_dir.name directly.
+                contacts_file_path = (
+                    social_touch_root / encounter_dir.name / session_dir.name / "skin_contacts_symmetric.h5"
                 )
-                if not contacts_file.exists():
-                    contacts_file = None
+                if not contacts_file_path.exists():
+                    contacts_file_path = None
 
-                sessions.append(
-                    dict(
-                        session_dir=session_dir,
-                        cohort=cohort,
-                        encounter=encounter,
-                        contacts_file=contacts_file,
+                try:
+                    parsed = parse_session_folder_name(session_dir.name)
+                except ValueError as exc:
+                    print(f"  [SKIP] {exc}")
+                    continue
+                rat_ids = {1: parsed["rat1_id"], 2: parsed["rat2_id"]}
+
+                for rat_idx, rat_id in rat_ids.items():
+                    subject_metadata = {}
+                    if rat_log_path is not None:
+                        try:
+                            subject_metadata = get_subject_metadata(rat_id, cohort, rat_log_path)
+                        except Exception as exc:
+                            print(f"  [WARNING] Could not load subject metadata for {rat_id}: {exc}")
+
+                    kwargs_list.append(
+                        dict(
+                            session_dir_path=session_dir,
+                            rat_idx=rat_idx,
+                            cohort=cohort,
+                            encounter=encounter,
+                            subject_metadata=subject_metadata,
+                            contacts_file_path=contacts_file_path,
+                        )
                     )
-                )
 
-    return sessions
+    return kwargs_list
 
 
-def convert_all_sessions(
-    data_root: Path,
-    output_dir: Path,
-    cohorts: list[str] | None = None,
-    rat_log_path: Path | None = None,
-    stub_test: bool = False,
+def safe_session_to_nwb(
+    *,
+    session_to_nwb_kwargs: dict,
+    exception_file_path: Union[Path, str],
 ) -> None:
-    """
-    Convert all sessions to NWB.
+    exception_file_path = Path(exception_file_path)
+    try:
+        session_to_nwb(**session_to_nwb_kwargs)
+    except Exception:
+        with open(exception_file_path, mode="w") as f:
+            f.write(f"session_to_nwb_kwargs:\n{pformat(session_to_nwb_kwargs)}\n\n")
+            f.write(traceback.format_exc())
+
+
+def dataset_to_nwb(
+    *,
+    data_dir_path: Union[str, Path],
+    output_dir_path: Union[str, Path],
+    cohorts: list[str] | None = None,
+    rat_log_path: Union[str, Path, None] = None,
+    max_workers: int = 1,
+    stub_test: bool = False,
+    overwrite: bool = False,
+    verbose: bool = True,
+) -> None:
+    """Convert the entire Klibaite 2025 Rat social behavior dataset to NWB.
 
     Parameters
     ----------
-    data_root : Path
+    data_dir_path : str or Path
         Path to the ``ugne/`` directory (contains cohort subdirectories).
-    output_dir : Path
-        Root output directory.  NWB files are written to
-        ``output_dir/<cohort>/<encounter>/``.
+    output_dir_path : str or Path
+        Root output directory. NWB files are written to
+        ``output_dir_path/<cohort>/<encounter>/``.
     cohorts : list of str, optional
         Restrict conversion to these cohort groups.
         Defaults to :data:`DEFAULT_COHORTS`.
-    rat_log_path : Path, optional
+    rat_log_path : str or Path, optional
         Path to ``ugne_rat_log.xlsx`` for per-rat DOB lookup.
+    max_workers : int
+        Number of parallel workers.
     stub_test : bool
         If True, convert only the first 100 frames of every session.
+    overwrite : bool
+        Overwrite existing NWB files.
+    verbose : bool
+        Print progress.
     """
-    data_root = Path(data_root)
-    output_dir = Path(output_dir)
+    data_dir_path = Path(data_dir_path)
+    output_dir_path = Path(output_dir_path)
+    exception_dir = output_dir_path / "exceptions"
+    exception_dir.mkdir(parents=True, exist_ok=True)
 
-    if cohorts is None:
-        cohorts = DEFAULT_COHORTS
+    kwargs_list = get_session_to_nwb_kwargs_per_session(
+        data_dir_path=data_dir_path,
+        cohorts=cohorts,
+        rat_log_path=rat_log_path,
+    )
+    print(f"Found {len(kwargs_list)} rat-sessions across cohorts: {cohorts or DEFAULT_COHORTS}\n")
 
-    sessions = discover_sessions(data_root, cohorts)
-    print(f"Found {len(sessions)} sessions across cohorts: {cohorts}\n")
-
-    n_ok = 0
-    n_fail = 0
-
-    for i, s in enumerate(sessions, start=1):
-        parsed = parse_session_folder_name(s["session_dir"].name)
-        rat_ids = {1: parsed["rat1_id"], 2: parsed["rat2_id"]}
-        print(f"[{i}/{len(sessions)}] {s['cohort']} / {s['encounter']} / {s['session_dir'].name}")
-
-        for rat_idx, rat_id in rat_ids.items():
-            print(f"  --- Converting {rat_id} (rat{rat_idx}) ---")
-            subject_metadata = {}
-            if rat_log_path is not None:
-                try:
-                    subject_metadata = get_subject_metadata(rat_id, s["cohort"], rat_log_path)
-                except Exception as exc:
-                    print(f"  [WARNING] Could not load subject metadata for {rat_id}: {exc}")
-
-            try:
-                session_to_nwb(
-                    session_dir_path=s["session_dir"],
-                    output_dir_path=output_dir,
-                    rat_idx=rat_idx,
-                    cohort=s["cohort"],
-                    encounter=s["encounter"],
-                    subject_metadata=subject_metadata,
-                    contacts_file_path=s["contacts_file"],
-                    stub_test=stub_test,
+    futures = []
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        for kwargs in kwargs_list:
+            kwargs["output_dir_path"] = output_dir_path
+            kwargs["stub_test"] = stub_test
+            kwargs["overwrite"] = overwrite
+            kwargs["verbose"] = verbose
+            session_id = kwargs["session_dir_path"].name
+            rat_idx = kwargs["rat_idx"]
+            exception_file_path = (
+                exception_dir / f"ERROR_{kwargs['cohort']}_{kwargs['encounter']}_{session_id}_rat{rat_idx}.txt"
+            )
+            futures.append(
+                executor.submit(
+                    safe_session_to_nwb,
+                    session_to_nwb_kwargs=kwargs,
+                    exception_file_path=exception_file_path,
                 )
-                n_ok += 1
-            except Exception:
-                print(f"  [ERROR] Conversion failed:")
-                traceback.print_exc()
-                n_fail += 1
+            )
 
-    print(f"\nDone. {n_ok} succeeded, {n_fail} failed.")
+        for _ in tqdm(as_completed(futures), total=len(futures), desc="Converting sessions"):
+            pass
 
 
 if __name__ == "__main__":
-    data_dir = Path("H:/Olveczky-CN-data-share/ugne")
-    output_dir = Path("H:/olveczky-nwbfiles")
-    rat_log_path = data_dir / "ugne_rat_log.xlsx"
+    data_dir_path = Path("H:/Olveczky-CN-data-share/ugne")
+    output_dir_path = Path("H:/olveczky-nwbfiles")
+    rat_log_path = data_dir_path / "ugne_rat_log.xlsx"
 
-    convert_all_sessions(
-        data_root=data_dir,
-        output_dir=output_dir,
+    dataset_to_nwb(
+        data_dir_path=data_dir_path,
+        output_dir_path=output_dir_path,
         cohorts=None,
         rat_log_path=rat_log_path,
+        max_workers=1,
         stub_test=True,
+        overwrite=True,
+        verbose=True,
     )

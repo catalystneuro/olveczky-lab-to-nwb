@@ -2,7 +2,48 @@
 
 ## Social Behavior / sDANNCE Dataset Conversion Progress
 
-**Progress: 0 / TBD**
+**Progress: 797 / 936 rat-sessions converting successfully (stub test, all 6 cohorts, 2026-07-28)**
+
+---
+
+## Batch Conversion Status (stub test, 2026-07-28)
+
+All 6 cohorts (SCN2A, ARID1B, CHD8, GRINB, NRXN1, LONGEVANS) discovered and stub-converted
+(100 frames/session) via `convert_all_sessions.py`. 468 unique sessions / 936 rat-sessions found.
+
+| Cohort | Sessions | Rat-sessions OK | Rat-sessions failed | Notes |
+|---|---|---|---|---|
+| SCN2A | 45 | 90/90 | 0 | Clean |
+| ARID1B | 86 | 166/172 | 6 | 1 session missing sDANNCE data; 2 sessions blocked by stray macOS `._0.mp4` files |
+| CHD8 | 84 | 168/168 | 0 | Clean (no Genotype column in rat log — defaults to "unknown") |
+| GRINB | 45 | 90/90 | 0 | Clean after fixing `GRINB`/`GRIN2B` cohort-name mismatch |
+| NRXN1 | 84 | 168/168 | 0 | Clean (no Genotype column in rat log — defaults to "unknown"); 3 transient MemoryErrors resolved on retry at lower parallelism |
+| LONGEVANS | 124 | 115/248 | 133 | SOC1–5 almost entirely missing sDANNCE pose data (video+calibration only); SOC6–9 essentially complete |
+
+**Fixes applied to the pipeline this session** (see commit history / `subject_metadata.py`,
+`convert_all_sessions.py`):
+- `STRAINS` dict keys and rat-log sheet-name lookup aligned to data-share cohort directory names
+  (`GRINB` not `GRIN2B`; `LONGEVANS` mapped to sheet `LongEvans` via `SHEET_NAME_OVERRIDES`).
+- `get_subject_metadata()` no longer raises on missing columns (Genotype, DOB, Cage, Mother,
+  Markings) — degrades individual fields to `"unknown"`/omitted instead of discarding the whole
+  record (previously a NRXN1/CHD8/LONGEVANS rat would silently lose even its `strain`).
+- Session discovery no longer crashes an entire cohort when one session folder doesn't match the
+  two-rat naming pattern (LONGEVANS has solo baseline/`_AMP` folders); non-`SOC<N>` encounter
+  folders and unparseable session folders are now skipped with a warning.
+- LONGEVANS skin-contacts path fixed: was reconstructing `{cohort}_{encounter}` (→
+  `LONGEVANS_SOC6`), but the actual `social_touch/` folder is `LONGEVANS_M_SOC6` — now uses the
+  raw encounter folder name.
+
+**Open items requiring lab input:**
+- LONGEVANS SOC1–5: no `SDANNCE`/`SDANNCE_x2` folder at all in ~132 sessions — pose pipeline
+  apparently never uploaded for these rounds (see `metadata_request_email.md` candidates).
+- ARID1B `2022_10_20_M11_M6`: missing sDANNCE data (only SLURM batch logs present).
+- Rat IDs `M8_EXTRA` (ARID1B) and `M5_take2` (LONGEVANS) appear in session folder names but have
+  no row in `ugne_rat_log.xlsx`.
+- ARID1B `2022_10_21_M2_M6` and `2022_10_21_M7_M8_EXTRA`: stray macOS `._0.mp4` AppleDouble
+  sidecar files in `videos/Camera1/` are picked up by neuroconv's `DANNCEConverter` as a second
+  video segment and fail to open — needs either share cleanup (strip `._*` files) or an upstream
+  neuroconv fix to filter hidden files during video discovery.
 
 ---
 
