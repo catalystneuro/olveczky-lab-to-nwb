@@ -153,6 +153,23 @@ def safe_session_to_nwb(
             f.write(traceback.format_exc())
 
 
+def safe_session_pair_to_nwb(
+    *,
+    session_to_nwb_kwargs_list: list[dict],
+    exception_file_paths: list[Path],
+) -> None:
+    """Convert both rats of one session sequentially, in the same process.
+
+    Both rats of a session share the same (often 5-55M row) ``skin_contacts_symmetric.h5``
+    file. Running them as one task instead of two independent executor tasks lets
+    ``SkinContactsInterface``'s module-level raw-data cache (see
+    ``interfaces/skin_contacts_interface.py``) serve the second rat's read from memory instead
+    of re-reading and re-decoding the file from disk. See ``documentation/performance_report.md``.
+    """
+    for kwargs, exception_file_path in zip(session_to_nwb_kwargs_list, exception_file_paths):
+        safe_session_to_nwb(session_to_nwb_kwargs=kwargs, exception_file_path=exception_file_path)
+
+
 def dataset_to_nwb(
     *,
     data_dir_path: Union[str, Path],
@@ -199,27 +216,36 @@ def dataset_to_nwb(
     )
     print(f"Found {len(kwargs_list)} rat-sessions across cohorts: {cohorts or DEFAULT_COHORTS}\n")
 
+    # Group kwargs into (rat1, rat2) pairs per session -- session discovery above always emits
+    # exactly one entry per rat, rat1 immediately followed by rat2, for each session. Submitting
+    # both as a single executor task (rather than two independent ones) keeps them in the same
+    # process, so SkinContactsInterface's raw-data cache can serve the second rat from memory
+    # instead of re-reading their shared skin_contacts_symmetric.h5 file. See
+    # `safe_session_pair_to_nwb` and `documentation/performance_report.md`.
     futures = []
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        for kwargs in kwargs_list:
-            kwargs["output_dir_path"] = output_dir_path
-            kwargs["stub_test"] = stub_test
-            kwargs["overwrite"] = overwrite
-            kwargs["verbose"] = verbose
-            session_id = kwargs["session_dir_path"].name
-            rat_idx = kwargs["rat_idx"]
-            exception_file_path = (
-                exception_dir / f"ERROR_{kwargs['cohort']}_{kwargs['encounter']}_{session_id}_rat{rat_idx}.txt"
-            )
+        for pair_start in range(0, len(kwargs_list), 2):
+            pair_kwargs = kwargs_list[pair_start : pair_start + 2]
+            exception_file_paths = []
+            for kwargs in pair_kwargs:
+                kwargs["output_dir_path"] = output_dir_path
+                kwargs["stub_test"] = stub_test
+                kwargs["overwrite"] = overwrite
+                kwargs["verbose"] = verbose
+                session_id = kwargs["session_dir_path"].name
+                rat_idx = kwargs["rat_idx"]
+                exception_file_paths.append(
+                    exception_dir / f"ERROR_{kwargs['cohort']}_{kwargs['encounter']}_{session_id}_rat{rat_idx}.txt"
+                )
             futures.append(
                 executor.submit(
-                    safe_session_to_nwb,
-                    session_to_nwb_kwargs=kwargs,
-                    exception_file_path=exception_file_path,
+                    safe_session_pair_to_nwb,
+                    session_to_nwb_kwargs_list=pair_kwargs,
+                    exception_file_paths=exception_file_paths,
                 )
             )
 
-        for _ in tqdm(as_completed(futures), total=len(futures), desc="Converting sessions"):
+        for _ in tqdm(as_completed(futures), total=len(futures), desc="Converting session pairs"):
             pass
 
 
