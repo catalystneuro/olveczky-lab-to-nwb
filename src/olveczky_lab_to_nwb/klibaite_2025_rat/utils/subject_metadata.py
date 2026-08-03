@@ -7,7 +7,9 @@ from pathlib import Path
 
 STRAINS: dict = (
     {  # from paper: https://www.cell.com/cell/fulltext/S0092-8674(25)00154-0#:~:text=Experimental%20models%3A%20Organisms/strains
-        "LongEvans": {
+        # Keys match the `cohort` argument used throughout the pipeline, i.e. the data-share
+        # directory names (e.g. "ugne/LONGEVANS/", "ugne/GRINB/"), NOT the rat-log sheet names.
+        "LONGEVANS": {
             "strain": "LE-Scn2a-em1Mcwi",
             "supplier": "Charles River Laboratories",
             "RRID": "Strain code: 006",
@@ -15,12 +17,18 @@ STRAINS: dict = (
         "SCN2A": {"strain": "LE-Scn2a-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_25394530"},
         "CNTNAP": {"strain": "LE-Cntnap2-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_25330087"},
         "CHD8": {"strain": "LE-Chd8-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_25330088"},
-        "GRIN2B": {"strain": "LE-Grin2b-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_14394515"},
+        "GRINB": {"strain": "LE-Grin2b-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_14394515"},
         "ARID1B": {"strain": "LE-Arid1b-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_14394518"},
         "FRAGILEX": {"strain": "LE-Fmr1-em2Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_11553873"},
         "NRXN1": {"strain": "LE-Nrxn1-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_25330089"},
     }
 )
+
+# The rat-log Excel sheet names don't always match the data-share cohort directory names
+# (e.g. data dir "LONGEVANS" vs sheet "LongEvans"). Map cohort -> sheet name where they differ.
+SHEET_NAME_OVERRIDES: dict = {
+    "LONGEVANS": "LongEvans",
+}
 
 
 def get_subject_metadata(
@@ -59,45 +67,52 @@ def get_subject_metadata(
     """
     import pandas as pd
 
-    rat_log = pd.read_excel(rat_log_path, sheet_name=cohort, header=1, dtype=str)
+    sheet_name = SHEET_NAME_OVERRIDES.get(cohort, cohort)
+    rat_log = pd.read_excel(rat_log_path, sheet_name=sheet_name, header=1, dtype=str)
     rat_log.columns = rat_log.columns.str.strip()
 
-    rat_col = "Rat ID"  # _find_column(rat_log, ["Rat ID", "RAT ID", "rat id", "RAT", "Rat"])
-    dob_col = "DOB"  # _find_column(rat_log, ["DOB", "dob", "DOB YYYYMMDD"])
-    genotype_col = "Genotype"  # _find_column(rat_log, ["Genotype", "GENOTYPE", "genotype"])
-    # weight_col = _find_column(rat_log, ["Initial Weight", "Weight", "weight", "WEIGHT"])
-    markings_col = "Markings"
-    cage_col = "Cage"
-    mother_col = "Mother"
+    rat_col = "Rat ID"
     mask = rat_log[rat_col].str.strip().str.upper() == rat_id.strip().upper()
     if not mask.any():
-        raise KeyError(f"Rat '{rat_id}' not found in sheet '{cohort}' of {rat_log_path}")
+        raise KeyError(f"Rat '{rat_id}' not found in sheet '{sheet_name}' of {rat_log_path}")
 
     row = rat_log[mask].iloc[0]
 
-    date_of_birth = _parse_dob(str(row[dob_col]).strip())
-    genotype = str(row[genotype_col]).strip()
-    # weight_raw = str(row[weight_col]).strip()
-    # weight = _normalize_weight(weight_raw)
-    marking = str(row[markings_col]).strip()
-    cage = str(
-        row[cage_col]
-    ).strip()  # TODO return nan because the cells are merged (except for the first row of the corresponding merged cells) --> trace back to the first non nan value
-    mother = str(
-        row[mother_col]
-    ).strip()  # TODO return nan because the cells are merged (except for the first row of the corresponding merged cells) --> trace back to the first non nan value
+    # Not every cohort sheet has the same columns (e.g. NRXN1/CHD8 have no "Genotype" column,
+    # LongEvans has no "DOB" values at all). Missing columns/values are reported as "unknown"
+    # rather than raising, so the rest of the subject's metadata (strain, subject_id, etc.) is
+    # still recovered instead of being discarded entirely.
+    dob_cell = _cell(row, "DOB", default=None) if "DOB" in rat_log.columns else None
+    date_of_birth = _parse_dob(dob_cell) if dob_cell is not None else None
+    genotype = _cell(row, "Genotype", default="unknown")
+    marking = _cell(row, "Markings", default="unknown")
+    cage = _cell(
+        row, "Cage", default="unknown"
+    )  # TODO return nan because the cells are merged (except for the first row of the corresponding merged cells) --> trace back to the first non nan value
+    mother = _cell(
+        row, "Mother", default="unknown"
+    )  # TODO return nan because the cells are merged (except for the first row of the corresponding merged cells) --> trace back to the first non nan value
 
     result = {
         "subject_id": f"{cohort}-{rat_id}",
         "sex": "U",  # TODO extract from rat_id: M# --> male / F# --> female
-        "date_of_birth": date_of_birth,
         "strain": STRAINS[cohort]["strain"],
         "genotype": genotype,
         "description": f"Rat {rat_id} from cohort {cohort}. Marking: {marking}. Cage: {cage}. Mother: {mother}. Supplier: {STRAINS[cohort]['supplier']}. RRID: {STRAINS[cohort]['RRID']}",
     }
-    # if weight:
-    #     result["weight"] = weight
+    if date_of_birth is not None:
+        result["date_of_birth"] = date_of_birth
     return result
+
+
+def _cell(row, column: str, default: str | None = "unknown") -> str | None:
+    """Return a stripped string cell value, or *default* if the column is absent or the value is NaN."""
+    if column not in row.index:
+        return default
+    value = row[column]
+    if value is None or str(value).strip().lower() in ("nan", "none", ""):
+        return default
+    return str(value).strip()
 
 
 def _find_column(df, candidates: list[str]) -> str:

@@ -186,6 +186,35 @@ Skin contacts:     frametimes.npy row 1, indexed by each event's frame number (f
 `session_start_time` is set to `session_date` (midnight UTC, parsed from the session folder name)
 — no time-of-day is currently encoded (see Open Questions).
 
+## Batch Conversion Run Summary (2026-07-28)
+
+Report: https://claude.ai/code/artifact/e4fd756e-cd18-4c8f-a367-f08cda919134
+
+Ran a stub-test (100 frames/session) conversion cohort-by-cohort across all 6 groups. **468 unique sessions / 936 rat-sessions** expected; **797 converted successfully (85%)**.
+
+| Cohort | Rat-sessions OK | Failed |
+|---|---|---|
+| SCN2A | 90/90 | 0 |
+| ARID1B | 166/172 | 6 |
+| CHD8 | 168/168 | 0 |
+| GRINB | 90/90 | 0 |
+| NRXN1 | 168/168 | 0 |
+| LONGEVANS | 115/248 | 133 |
+
+**Bugs fixed in the pipeline** (in `convert_all_sessions.py` and `utils/subject_metadata.py`):
+- `GRINB`/`GRIN2B` and `LONGEVANS`/`LongEvans` naming mismatches were causing metadata lookups to throw `KeyError` for entire cohorts.
+- LONGEVANS solo-rat baseline folders crashed session discovery for the **whole cohort** (0/248 before the fix) — now skipped gracefully.
+- LONGEVANS skin-contacts files were silently never found (wrong path reconstruction).
+- Missing rat-log columns (Genotype/DOB) for NRXN1/CHD8/LongEvans previously discarded a rat's *entire* metadata record, including `strain`; now degrades individual fields to `"unknown"` instead.
+
+**Genuine data gaps flagged (need lab input), not code bugs:**
+- LONGEVANS SOC1–5 (~132 sessions) have no sDANNCE pose data uploaded at all — video/calibration only.
+- 1 ARID1B session and rat IDs `M8_EXTRA`/`M5_take2` missing sDANNCE data / not in the rat log.
+- 2 ARID1B sessions blocked by stray macOS `._0.mp4` sidecar files confusing neuroconv's video-segment discovery — a data-hygiene issue, not our code.
+- 3 NRXN1 `MemoryError`s were transient (resolved on retry at lower parallelism) — worth capping worker count for the full run.
+
+All details are in the report, including a per-cohort, per-session table with pass/fail per rat and metadata-completeness indicators. `documentation/project_track.md` was updated with this status for future sessions. Next step, when ready: the full (non-stub) conversion run.
+
 ## Open Questions
 
 Items that need input from the lab (Lily Cao / Ugne Klibaite) before they can be resolved:
@@ -210,7 +239,5 @@ Internal code/repo work, not blocked on the lab:
 - **Sex inference**: `get_subject_metadata()` could derive sex from the rat ID (`M{n}` prefix in
   the log is a rat index, not a sex marker in this dataset — confirm before attempting to infer
   sex from ID text).
-- **Batch conversion for CHD8/GRIN2B/NRXN1/Long-Evans WT** once full session data is uploaded —
-  `convert_all_sessions.py::DEFAULT_COHORTS` will need to be extended.
 - **Ephys and fiber photometry interfaces** — placeholders only; no design work started, pending
   the lab collecting and sharing this data.
