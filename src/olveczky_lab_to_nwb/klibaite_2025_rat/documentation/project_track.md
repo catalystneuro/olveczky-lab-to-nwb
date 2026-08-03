@@ -2,7 +2,6 @@
 
 ## Social Behavior / sDANNCE Dataset Conversion Progress
 
-**Progress: 797 / 936 rat-sessions converting successfully (stub test, all 6 cohorts, 2026-07-28)**
 
 ---
 
@@ -62,7 +61,6 @@ All 6 cohorts (SCN2A, ARID1B, CHD8, GRINB, NRXN1, LONGEVANS) discovered and stub
 - [x] Lab metadata reply received (2026-04-29) — keypoint names, DOB source, WT/KO mapping, publication DOI, Dataverse URL, experimenter list, SFARI grant
 - [x] Integrate lab reply: constants.py (23 rat23 joints + edges), subject_metadata.py (xlsx loaders), updated metadata YAML and converter
 - [ ] **Pending** — per-rat exact weights, per-rat sex, exact session start times of day
-- [ ] Acquire full session data for CHD8, GRINB, NRXN1, LONGEVANS (currently contacts-only in share)
 - [x] Create GitHub remote for this repo
 
 ---
@@ -82,12 +80,7 @@ All 6 cohorts (SCN2A, ARID1B, CHD8, GRINB, NRXN1, LONGEVANS) discovered and stub
 
 #### Cohorts with full data (video + sDANNCE + skin contacts)
 
-- SCN2A: SOC1, SOC2, SOC3
-- ARID1B: SOC1, SOC2, SOC3
-
-#### Cohorts with skin contacts only (no video/sDANNCE in share yet)
-
-- CHD8, GRINB, NRXN1, LONGEVANS
+- SCN2A, ARID1B, CHD8, GRINB, NRXN1, LONGEVANS
 
 #### Ingest in Spyglass
 
@@ -129,8 +122,8 @@ All 6 cohorts (SCN2A, ARID1B, CHD8, GRINB, NRXN1, LONGEVANS) discovered and stub
 
 ### Post-Conversion
 
-- [x] NWBInspector validation (stub) — 1 `check_image_series_external_file_relative` warning only
-- [ ] Setup Dandiset (public — line is published)
+- [x] NWBInspector validation (stub)
+- [x] Setup Dandiset - [DANDI:001936](https://dandiarchive.org/dandiset/001936/draft)
 - [ ] Example Notebooks (streaming + Spyglass query demo)
 
 ---
