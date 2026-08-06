@@ -34,10 +34,46 @@ substantially with the Uchida lab conversion (same facility; see `uchida-lab-to-
 | Subject metadata | XLSX (lab rat log) | `ugne_rat_log.xlsx` (one sheet per cohort) | `Subject`, via `utils/subject_metadata.get_subject_metadata()` |
 
 Not converted / not yet in the data share:
-- **Center of mass** (`COM/predict{00,01}/com3d*.mat`) — redundant with sDANNCE keypoints, not written to NWB.
+
+- **Center of mass** (`COM/predict{00,01}/com3d*.mat`, merged per-rat as `instance{0,1}com3d.mat`) — the
+  3D crop-anchor the sDANNCE network was targeted around for each frame, not a keypoint itself, but
+  superseded by (not literally reproducible from) the sDANNCE pose keypoints; kept out of NWB as a
+  pipeline-internal targeting signal, not an independent measurement.
 - **STAC skeleton fit** (`stac/`, SCN2A only) — intermediate model-fitting artifact, not converted.
-- **Experiment config** (`io.yaml`) — DANNCE pipeline config, not lab/session metadata.
+- **Experiment config/orchestration** (`io.yaml`, `predict.sh`, `_batch_params.p`) — DANNCE/sDANNCE
+  pipeline run recipe and SLURM job-splitting bookkeeping, not lab/session metadata. `io.yaml` does
+  usefully record the exact checkpoint used per session (e.g. `bsl0.5_FM/checkpoint-epoch100.pth`,
+  `train_mode: finetune`) and a `left_keypoints`/`right_keypoints` cross-check for the rat23 skeleton
+  ordering in `utils/constants.py`.
+- **SLURM job logs** (`slurm-{jobid}.out`) — HPC stdout/stderr from COM/sDANNCE training (finetune,
+  often resubmitted 3-4x per session on Duke's `tdunn` partition) and the chunked prediction run
+  (`slurm-{jobid}_{0..17}.out` array job, one task per 5000-frame chunk). Provenance only, no NWB
+  content.
+- **`save_data_AVG0.mat` / `init_save_data_AVG.mat` / `com3d_used.mat`** (sibling files next to the
+  ingested `save_data_AVG.mat` in each `SDANNCE(_x2)/bsl0.5_FM_rat{N}/` folder) — see **known issue**
+  below for `save_data_AVG0.mat`; `init_save_data_AVG.mat` is an earlier/superseded prediction pass
+  (joint positions differ from the final `pred` by up to ~43 units) and `com3d_used.mat` is a
+  provenance copy of the COM trajectory fed into that specific sDANNCE run.
+- **`sampleCAL_BG_dannce.mat`** — a Label3D GUI calibration/background companion file; its per-camera
+  `params` (K/r/t) are a rawer, less-refined draft than `calibration/hires_cam{N}_params.mat` (already
+  ingested), and its `sync` channel is all-zero/unused in these sessions. Nothing not already better
+  represented by the calibration files we ingest.
+- **`videos/Camera{1-6}/metadata.csv`** — campy capture-software metadata (`cameraModel`,
+  `cameraSerialNo`, `frameRate`, resolution). Not currently pulled into `Device`/`ImageSeries`
+  metadata; low-effort enrichment opportunity, not a data gap.
 - **Electrophysiology** (flexible probes, Neuropixels, tetrodes) and **fiber photometry** — planned by the lab, not yet collected/shared.
+
+### Known issue: `save_data_AVG.mat` is missing the last chunk of every session
+
+Verified 2026-08-06 across 60 ARID1B session/rat folders (all with both files present): the ingested
+`save_data_AVG.mat` (`sampleID` 0-88999, 89000 frames) is byte-identical, frame-for-frame, to the
+full-session `save_data_AVG0.mat` (`sampleID` 0-89999, 90000 frames) sitting in the same folder — it is
+simply missing the final 1000-frame prediction chunk (the last of 18 SLURM-array chunks defined in
+`_batch_params.p`). This is ~20s (at 50 fps) dropped from the end of every rat-session currently
+converted. 1197/1198 `save_data_AVG.mat` files in the full `ugne/` share have a matching
+`save_data_AVG0.mat` sibling; this looks like a systematic artifact of the lab's own chunk-merge
+script, not session-specific. See full file-inventory report:
+[sDANNCE Output Inventory](https://claude.ai/code/artifact/7a302e24-7a54-4b47-8ac8-5b4db3dd5a8b)
 
 ## Directory Structure
 
@@ -230,6 +266,8 @@ Items that need input from the lab (Lily Cao / Ugne Klibaite) before they can be
   `get_subject_metadata()`.
 - **Per-rat weight** — not available in any source seen so far; only an approximate cohort-level
   range (350–600 g) is known from the paper.
+- Is `save_data_AVG0.mat` the more complete/
+correct source, and should the converter switch to reading it instead?
 
 ## TODOs
 
