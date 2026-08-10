@@ -127,6 +127,10 @@ klibaite_2025_rat/
 ├── utils/
 │   ├── constants.py              # rat23 skeleton: 23 landmark names + 23 edges
 │   └── subject_metadata.py       # STRAINS dict + get_subject_metadata() (reads ugne_rat_log.xlsx)
+├── notebooks/
+│   ├── dandi_001936_tutorial.ipynb   # single-subject: stream/read one rat's NWB file, explore + visualize
+│   └── two_subject_tutorial.ipynb    # two-subject: load a rat pair (shared session_id) together,
+│                                      # paired visualizations (rat1=blue, rat2=red convention)
 └── documentation/
     ├── conversion_notes.md        # this file
     ├── project_track.md           # conversion progress tracker
@@ -273,7 +277,6 @@ correct source, and should the converter switch to reading it instead?
 
 Internal code/repo work, not blocked on the lab:
 
-- **No automated tests** exist for the interfaces or conversion pipeline.
 - **Sex inference**: `get_subject_metadata()` could derive sex from the rat ID (`M{n}` prefix in
   the log is a rat index, not a sex marker in this dataset — confirm before attempting to infer
   sex from ID text).

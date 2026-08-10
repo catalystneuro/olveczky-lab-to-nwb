@@ -124,7 +124,11 @@ All 6 cohorts (SCN2A, ARID1B, CHD8, GRINB, NRXN1, LONGEVANS) discovered and stub
 
 - [x] NWBInspector validation (stub)
 - [x] Setup Dandiset - [DANDI:001936](https://dandiarchive.org/dandiset/001936/draft)
-- [ ] Example Notebooks (streaming + Spyglass query demo)
+- [x] Example Notebook: single-subject tutorial (`dandi_001936_tutorial.ipynb`) — stream from
+  DANDI or read local, explore file structure, visualize video/pose/skeleton/contacts
+- [x] Example Notebook: two-subject tutorial (`two_subject_tutorial.ipynb`) — load a rat pair's
+  two NWB files by subject pair + shared session_id, paired visualizations (rat1=blue, rat2=red)
+- [ ] Example Notebook: Spyglass query demo
 
 ---
 
@@ -161,7 +165,9 @@ All 6 cohorts (SCN2A, ARID1B, CHD8, GRINB, NRXN1, LONGEVANS) discovered and stub
 
 ## Cross-Project Deliverables (Aim 4 — Demonstrate NWB usage)
 
-- Tutorial notebook: read converted NWB locally
-- Tutorial notebook: stream NWB directly from DANDI
-- Tutorial notebook: query data via Spyglass
-- Lab-facing README and onboarding doc
+- [x] Tutorial notebook: read converted NWB locally / stream NWB directly from DANDI (single
+  subject) — `dandi_001936_tutorial.ipynb`
+- [x] Tutorial notebook: read a rat pair together (two-subject, blue/red convention) —
+  `two_subject_tutorial.ipynb`
+- [ ] Tutorial notebook: query data via Spyglass
+- [ ] Lab-facing README and onboarding doc
