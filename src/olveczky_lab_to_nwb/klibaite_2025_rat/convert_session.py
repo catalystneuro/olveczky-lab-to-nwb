@@ -20,7 +20,7 @@ from neuroconv.utils import dict_deep_update
 
 from olveczky_lab_to_nwb.klibaite_2025_rat.nwbconverter import Klibaite2025NWBConverter
 from olveczky_lab_to_nwb.klibaite_2025_rat.utils import SDANNCE_LANDMARK_NAMES, SDANNCE_SKELETON_EDGES
-from olveczky_lab_to_nwb.klibaite_2025_rat.utils import get_strain_ontology_mapping
+from olveczky_lab_to_nwb.klibaite_2025_rat.utils import get_anatomy_ontology_mapping, get_strain_ontology_mapping
 
 _GENERAL_METADATA_YAML = Path(__file__).parent / "general_metadata.yaml"
 
@@ -189,8 +189,12 @@ def session_to_nwb(
     # HERD ontology annotation: Subject.species (Rattus norvegicus) is resolved automatically by
     # NeuroConv's curated species table. Subject.strain is cohort-specific lab knockout lines
     # NeuroConv doesn't know about offline, so map each to its RRID explicitly (see
-    # get_strain_ontology_mapping's docstring).
+    # get_strain_ontology_mapping's docstring). The rat23 skeleton's node names
+    # ("ShoulderLeft", ...) aren't recognized by NeuroConv's curated anatomy table either (only
+    # the base structure, e.g. "Shoulder", is), so map each to its UBERON term explicitly (see
+    # get_anatomy_ontology_mapping's docstring).
     metadata["Strain"] = get_strain_ontology_mapping()
+    metadata["Anatomy"] = get_anatomy_ontology_mapping()
 
     if subject_metadata:
         metadata["Subject"] = dict_deep_update(metadata["Subject"], subject_metadata)
