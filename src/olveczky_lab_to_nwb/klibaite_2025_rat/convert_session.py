@@ -19,7 +19,8 @@ import yaml
 from neuroconv.utils import dict_deep_update
 
 from olveczky_lab_to_nwb.klibaite_2025_rat.nwbconverter import Klibaite2025NWBConverter
-from olveczky_lab_to_nwb.klibaite_2025_rat.utils.constants import SDANNCE_LANDMARK_NAMES, SDANNCE_SKELETON_EDGES
+from olveczky_lab_to_nwb.klibaite_2025_rat.utils import SDANNCE_LANDMARK_NAMES, SDANNCE_SKELETON_EDGES
+from olveczky_lab_to_nwb.klibaite_2025_rat.utils import get_strain_ontology_mapping
 
 _GENERAL_METADATA_YAML = Path(__file__).parent / "general_metadata.yaml"
 
@@ -185,6 +186,12 @@ def session_to_nwb(
     with open(_GENERAL_METADATA_YAML) as f:
         metadata = dict_deep_update(metadata, yaml.safe_load(f))
 
+    # HERD ontology annotation: Subject.species (Rattus norvegicus) is resolved automatically by
+    # NeuroConv's curated species table. Subject.strain is cohort-specific lab knockout lines
+    # NeuroConv doesn't know about offline, so map each to its RRID explicitly (see
+    # get_strain_ontology_mapping's docstring).
+    metadata["Strain"] = get_strain_ontology_mapping()
+
     if subject_metadata:
         metadata["Subject"] = dict_deep_update(metadata["Subject"], subject_metadata)
     else:
@@ -256,6 +263,6 @@ if __name__ == "__main__":
         encounter=encounter,
         subject_metadata=subject_metadata,
         contacts_file_path=contacts_file,
-        stub_test=True,
+        stub_test=False,
         verbose=True,
     )
