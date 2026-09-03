@@ -7,8 +7,8 @@ name = "olveczky-lab-to-nwb"
 version = "0.0.1"
 description = "NWB conversion scripts, functions, and classes for Olveczky Lab"
 readme = "README.md"
-authors = [{ name = "CatalystNeuro", email = "ben.dichter@catalystneuro.com" }]
-maintainers = [{ name = "CatalystNeuro", email = "ben.dichter@catalystneuro.com" }]
+authors = [{ name = "CatalystNeuro", email = "alessandra.trapani@catalystneuro.com" }]
+maintainers = [{ name = "CatalystNeuro", email = "alessandra.trapani@catalystneuro.com" }]
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3.10",
@@ -19,26 +19,20 @@ classifiers = [
 dependencies = [
     "pynwb>=4.0.0",
     "nwbinspector",
+    # DANNCEInterface is on neuroconv add-dannce-interface
+    "neuroconv @ git+https://github.com/catalystneuro/neuroconv.git@add-dannce-interface",
+    # "ndx-pose>=0.4.0", # release TBD
+    "ndx-pose @ git+https://github.com/rly/ndx-pose.git@main",
+    "openpyxl",
+    "python-dateutil",
+    "opencv-python-headless",
 ]
 
 [project.urls]
 Repository = "https://github.com/catalystneuro/olveczky-lab-to-nwb"
 
-[project.optional-dependencies]
-social_behavior = [
-    # DANNCEInterface is on neuroconv main; install from local clone or main branch:
-    # pip install -e "C:/Users/amtra/CatalystNeuro/neuroconv"
-    # pip install "git+https://github.com/catalystneuro/neuroconv.git@main"
-    "neuroconv",
-    "ndx-pose>=0.4.0",
-    "scipy",
-    "h5py",
-    "numpy",
-    "pandas",
-    "openpyxl",
-    "python-dateutil",
-    "opencv-python-headless",
-]
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/olveczky_lab_to_nwb"]
