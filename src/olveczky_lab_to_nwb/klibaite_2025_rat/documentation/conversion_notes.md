@@ -26,7 +26,7 @@ substantially with the Uchida lab conversion (same facility; see `uchida-lab-to-
 
 | Stream | Format | File Pattern | NeuroConv Interface |
 |---|---|---|---|
-| 3D pose estimation (per rat) | sDANNCE `.mat`, single-animal 3D format | `SDANNCE(_x2)/bsl0.5_FM_rat{N}/save_data_AVG.mat` | `DANNCEConverter` (neuroconv), one call per rat |
+| 3D pose estimation (per rat) | sDANNCE `.mat`, single-animal 3D format | `SDANNCE(_x2)/bsl0.5_FM_rat{N}/save_data_AVG0.mat` (falls back to `save_data_AVG.mat`) | `DANNCEConverter` (neuroconv), one call per rat |
 | Multi-camera video (6 cameras) | `.mp4` per camera, external file | `videos/Camera{1..6}/0.mp4` | via `DANNCEConverter` (linked automatically, shared across both rats' NWB files) |
 | Camera calibration | `.mat` per camera | `calibration/hires_cam{N}_params.mat` | via `DANNCEConverter` (`calibration_path`) — writes calibrated `Device`s |
 | Video frame times | `.npy`, shape `(2, n_frames)` | `videos/Camera1/frametimes.npy` | used to index skin-contact event timestamps only (DANNCE/video use their own internal timestamp logic) |
@@ -49,11 +49,12 @@ Not converted / not yet in the data share:
   often resubmitted 3-4x per session on Duke's `tdunn` partition) and the chunked prediction run
   (`slurm-{jobid}_{0..17}.out` array job, one task per 5000-frame chunk). Provenance only, no NWB
   content.
-- **`save_data_AVG0.mat` / `init_save_data_AVG.mat` / `com3d_used.mat`** (sibling files next to the
-  ingested `save_data_AVG.mat` in each `SDANNCE(_x2)/bsl0.5_FM_rat{N}/` folder) — see **known issue**
-  below for `save_data_AVG0.mat`; `init_save_data_AVG.mat` is an earlier/superseded prediction pass
-  (joint positions differ from the final `pred` by up to ~43 units) and `com3d_used.mat` is a
-  provenance copy of the COM trajectory fed into that specific sDANNCE run.
+- **`save_data_AVG.mat` / `init_save_data_AVG.mat` / `com3d_used.mat`** (sibling files next to the
+  ingested `save_data_AVG0.mat` in each `SDANNCE(_x2)/bsl0.5_FM_rat{N}/` folder) — see **known
+  issue** below for why `save_data_AVG.mat` itself is no longer the ingested file;
+  `init_save_data_AVG.mat` is an earlier/superseded prediction pass (joint positions differ from
+  the final `pred` by up to ~43 units) and `com3d_used.mat` is a provenance copy of the COM
+  trajectory fed into that specific sDANNCE run.
 - **`sampleCAL_BG_dannce.mat`** — a Label3D GUI calibration/background companion file; its per-camera
   `params` (K/r/t) are a rawer, less-refined draft than `calibration/hires_cam{N}_params.mat` (already
   ingested), and its `sync` channel is all-zero/unused in these sessions. Nothing not already better
@@ -63,7 +64,7 @@ Not converted / not yet in the data share:
   metadata; low-effort enrichment opportunity, not a data gap.
 - **Electrophysiology** (flexible probes, Neuropixels, tetrodes) and **fiber photometry** — planned by the lab, not yet collected/shared.
 
-### Known issue: `save_data_AVG.mat` is missing the last chunk of every session
+### Known issue (resolved 2026-09-08): `save_data_AVG.mat` was missing the last chunk of every session
 
 Verified 2026-08-06 across 60 ARID1B session/rat folders (all with both files present): the ingested
 `save_data_AVG.mat` (`sampleID` 0-88999, 89000 frames) is byte-identical, frame-for-frame, to the
@@ -74,6 +75,11 @@ converted. 1197/1198 `save_data_AVG.mat` files in the full `ugne/` share have a 
 `save_data_AVG0.mat` sibling; this looks like a systematic artifact of the lab's own chunk-merge
 script, not session-specific. See full file-inventory report:
 [sDANNCE Output Inventory](https://claude.ai/code/artifact/7a302e24-7a54-4b47-8ac8-5b4db3dd5a8b)
+
+**Lab confirmed (Lily Cao, 2026-09-08): read `save_data_AVG0.mat` instead.** `find_sdannce_mat()`
+in `convert_session.py` now prefers `save_data_AVG0.mat`, falling back to `save_data_AVG.mat` only
+for the 1/1198 session missing the sibling. Sessions already converted from `save_data_AVG.mat`
+are missing their last ~20s and should be re-run.
 
 ## Directory Structure
 
@@ -108,9 +114,9 @@ Per session folder (e.g. 2022_09_22_M1_M2/):
 │   └── hires_cam{1..6}_params.mat         # K, r, t, RDistort, TDistort per camera
 ├── SDANNCE/  (SCN2A)  or  SDANNCE_x2/  (ARID1B)
 │   ├── bsl0.5_FM_rat1/
-│   │   └── save_data_AVG.mat              # ~115 MB, per-rat pose (see below)
+│   │   └── save_data_AVG0.mat             # ~115 MB, per-rat pose, full session (see below)
 │   └── bsl0.5_FM_rat2/
-│       └── save_data_AVG.mat
+│       └── save_data_AVG0.mat
 └── [only in social_touch/<cohort>_<encounter>/<session>/: skin_contacts_symmetric.h5]
 ```
 
@@ -167,8 +173,8 @@ session (once per rat) so both NWB files reference the same external video files
   `utils/subject_metadata.get_subject_metadata(rat_id, cohort, rat_log_path)`.
 - **Weight:** not available per-rat in any source seen so far (approximate range 350–600 g from
   the paper, not written to NWB).
-- **Sex:** not present in the rat log; `get_subject_metadata()` currently hardcodes `"U"`
-  (unknown) — see Open Questions.
+- **Sex:** not present in the rat log; lab confirmed all rats are male, so
+  `get_subject_metadata()` sets `"sex": "M"` for every rat.
 
 ## Existing Resources
 
@@ -181,7 +187,7 @@ session (once per rat) so both NWB files reference the same external video files
 
 | Interface | Writes | Notes |
 |---|---|---|
-| `DANNCEConverter` (neuroconv, ×1 per rat) | `PoseEstimation` (ndx-pose) + 6 `ImageSeries` (external video) + calibrated `Device`s | Reads the per-rat, single-animal `save_data_AVG.mat` (3D `pred` array, shape `(n_frames, 3, 23)` — NOT the 4D multi-animal format `SDANNCEInterface` expects). Skeleton (`SDANNCE_LANDMARK_NAMES`/`SDANNCE_SKELETON_EDGES` from `utils/constants.py`) is injected into `Behavior/Pose` metadata at conversion time (`session_to_nwb()`), keyed by `pose_key` ("PoseEstimationSDANNCE") to match `DANNCEInterface`'s own lookup; the descriptive per-rat name (`SkeletonPoseEstimationSDANNCE_Rat{N}`) is only the Skeleton's `name` field, since each rat is written to a separate NWB file. |
+| `DANNCEConverter` (neuroconv, ×1 per rat) | `PoseEstimation` (ndx-pose) + 6 `ImageSeries` (external video) + calibrated `Device`s | Reads the per-rat, single-animal `save_data_AVG0.mat` (3D `pred` array, shape `(n_frames, 3, 23)` — NOT the 4D multi-animal format `SDANNCEInterface` expects). Skeleton (`SDANNCE_LANDMARK_NAMES`/`SDANNCE_SKELETON_EDGES` from `utils/constants.py`) is injected into `Behavior/Pose` metadata at conversion time (`session_to_nwb()`), keyed by `pose_key` ("PoseEstimationSDANNCE") to match `DANNCEInterface`'s own lookup; the descriptive per-rat name (`SkeletonPoseEstimationSDANNCE_Rat{N}`) is only the Skeleton's `name` field, since each rat is written to a separate NWB file. |
 | `SkinContactsInterface` (custom, `BaseEventsInterface`) | Shared `SkinContacts` `EventsTable` in `nwbfile.events` | One event type per unique `(rat1_body_part, rat2_body_part)` pair (e.g. `"right foot x left toe"`), with `frame_index`/`rat1_vertex`/`rat2_vertex` columns. Vertex indices reference the 6880-vertex STAC body mesh; body-part labels are humanized from the raw `walker/<part>_{L,R}` format. Timestamps come from `frametimes.npy` row 1, indexed by the contact event's frame. Written once per session (referenced identically from both rats' NWB files). |
 
 `Klibaite2025NWBConverter` (`nwbconverter.py`) registers two interface slots: `DANNCE` and
@@ -266,19 +272,11 @@ Items that need input from the lab (Lily Cao / Ugne Klibaite) before they can be
   (Eastern) or another timezone, to correctly localize `session_start_time`.
 - **Full session data for CHD8, GRIN2B, NRXN1, Long-Evans WT** — currently only skin-contacts
   `.h5` files are in the share for these cohorts; video/calibration/sDANNCE are pending upload.
-- **Per-rat sex** — not present in `ugne_rat_log.xlsx`; currently hardcoded to `"U"` in
-  `get_subject_metadata()`.
 - **Per-rat weight** — not available in any source seen so far; only an approximate cohort-level
   range (350–600 g) is known from the paper.
-- Is `save_data_AVG0.mat` the more complete/
-correct source, and should the converter switch to reading it instead?
 
 ## TODOs
 
 Internal code/repo work, not blocked on the lab:
-
-- **Sex inference**: `get_subject_metadata()` could derive sex from the rat ID (`M{n}` prefix in
-  the log is a rat index, not a sex marker in this dataset — confirm before attempting to infer
-  sex from ID text).
 - **Ephys and fiber photometry interfaces** — placeholders only; no design work started, pending
   the lab collecting and sharing this data.

@@ -95,7 +95,7 @@ def get_subject_metadata(
 
     result = {
         "subject_id": f"{cohort}-{rat_id}",
-        "sex": "U",  # TODO extract from rat_id: M# --> male / F# --> female
+        "sex": "M",
         "strain": STRAINS[cohort]["strain"],
         "genotype": genotype,
         "description": f"Rat {rat_id} from cohort {cohort}. Marking: {marking}. Cage: {cage}. Mother: {mother}. Supplier: {STRAINS[cohort]['supplier']}. RRID: {STRAINS[cohort]['RRID']}",

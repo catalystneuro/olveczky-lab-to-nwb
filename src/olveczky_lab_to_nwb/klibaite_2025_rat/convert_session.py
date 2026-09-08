@@ -57,7 +57,7 @@ def _encounter_to_label(encounter: str) -> str:
 
 
 def find_sdannce_mat(session_dir_path: Path, rat: str) -> Path:
-    """Find ``save_data_AVG.mat`` for a given rat.
+    """Find ``save_data_AVG0.mat`` for a given rat.
 
     Handles both SDANNCE folder naming variants:
     - SCN2A: ``SDANNCE/bsl0.5_FM_rat{N}/``
@@ -68,12 +68,14 @@ def find_sdannce_mat(session_dir_path: Path, rat: str) -> Path:
         if not sdannce_root.exists():
             continue
         for rat_dir in sorted(sdannce_root.iterdir()):
-            if rat_dir.is_dir() and rat.lower() in rat_dir.name.lower():
-                mat_file = rat_dir / "save_data_AVG.mat"
+            if not (rat_dir.is_dir() and rat.lower() in rat_dir.name.lower()):
+                continue
+            for filename in ("save_data_AVG0.mat", "save_data_AVG.mat"):
+                mat_file = rat_dir / filename
                 if mat_file.exists():
                     return mat_file
     raise FileNotFoundError(
-        f"Could not find save_data_AVG.mat for '{rat}' in {session_dir_path}. "
+        f"Could not find save_data_AVG0.mat or save_data_AVG.mat for '{rat}' in {session_dir_path}. "
         "Searched SDANNCE/ and SDANNCE_x2/ subdirectories."
     )
 
