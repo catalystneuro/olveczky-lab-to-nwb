@@ -10,9 +10,9 @@ STRAINS: dict = (
         # Keys match the `cohort` argument used throughout the pipeline, i.e. the data-share
         # directory names (e.g. "ugne/LONGEVANS/", "ugne/GRINB/"), NOT the rat-log sheet names.
         "LONGEVANS": {
-            "strain": "LE-Scn2a-em1Mcwi",
+            "strain": "Long-Evans",
             "supplier": "Charles River Laboratories",
-            "RRID": "Strain code: 006",
+            "RRID": "RGD_2308852",
         },
         "SCN2A": {"strain": "LE-Scn2a-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_25394530"},
         "CNTNAP": {"strain": "LE-Cntnap2-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_25330087"},
@@ -29,6 +29,42 @@ STRAINS: dict = (
 SHEET_NAME_OVERRIDES: dict = {
     "LONGEVANS": "LongEvans",
 }
+
+
+def get_strain_ontology_mapping() -> dict:
+    """Build the ``metadata["Strain"]`` HERD override mapping (see neuroconv's ontology tools).
+
+    NeuroConv's built-in curated strain table (``neuroconv.tools.ontology.STRAIN_TERMS``) only
+    recognizes common off-the-shelf lines (e.g. ``"C57BL/6J"``, ``"Long-Evans"``); it does not
+    know about lab-specific knockout lines like ``"LE-Scn2a-em1Mcwi"``. This maps each such
+    strain designation (as written to ``Subject.strain`` by :func:`get_subject_metadata`) to its
+    RRID via NeuroConv's ontology-agnostic ``metadata["Strain"]`` override, so every cohort's
+    subjects get a machine-readable RRID reference in-file (HERD), not just the ones NeuroConv
+    already recognizes offline.
+
+    A cohort whose strain designation NeuroConv's curated table already resolves (currently only
+    ``"Long-Evans"``, the LONGEVANS cohort) is skipped -- the built-in lookup covers it, so an
+    explicit override entry would be redundant.
+
+    Returns
+    -------
+    dict
+        ``{strain designation: {"id": "RRID:...", "uri": "https://scicrunch.org/resolver/RRID:..."}}``
+        for each cohort not already covered by NeuroConv's curated strain table.
+    """
+    from neuroconv.tools.ontology import get_strain_term
+
+    mapping = {}
+    for info in STRAINS.values():
+        strain_designation = info["strain"]
+        if get_strain_term(strain_designation) is not None:
+            continue  # already resolved by NeuroConv's curated table
+        rrid = info["RRID"]
+        mapping[strain_designation] = {
+            "id": f"RRID:{rrid}",
+            "uri": f"https://scicrunch.org/resolver/RRID:{rrid}",
+        }
+    return mapping
 
 
 def get_subject_metadata(

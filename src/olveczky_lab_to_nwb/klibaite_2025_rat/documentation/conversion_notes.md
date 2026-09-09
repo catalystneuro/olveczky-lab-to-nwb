@@ -216,6 +216,15 @@ requires installing from `main`, not yet on PyPI), `ndx-pose>=0.4.0`, `scipy`, `
   and lab correspondence) and `get_subject_metadata(rat_id, cohort, rat_log_path)`, which reads
   the matching sheet of `ugne_rat_log.xlsx` and returns `subject_id`, `sex` (currently always
   `"U"`), `date_of_birth`, `strain`, `genotype`, `description`.
+- **HERD ontology annotation (2026-08-12):** NeuroConv (`neuroconv.tools.ontology`) automatically
+  annotates `Subject.species` (*Rattus norvegicus* -> NCBITaxon) and, when recognized, `Subject.strain`
+  with a machine-readable RRID reference stored in-file (`/general/external_resources`). Its
+  curated strain table only recognizes generic off-the-shelf lines (`"Long-Evans"` -> the
+  LONGEVANS cohort resolves automatically); the lab-specific knockout lines (SCN2A, ARID1B, CHD8,
+  GRINB, NRXN1, FRAGILEX) don't have a generic RRID, so `utils/subject_metadata.get_strain_ontology_mapping()`
+  builds an explicit `metadata["Strain"]` override from the same `STRAINS` RRIDs, wired in
+  `convert_session.py`. No brain-region annotation applies to this dataset (pose/behavior only,
+  no electrodes/imaging planes/fiber photometry).
 
 ## Temporal Alignment
 
@@ -265,6 +274,10 @@ All details are in the report, including a per-cohort, per-session table with pa
 
 Items that need input from the lab (Lily Cao / Ugne Klibaite) before they can be resolved:
 
+- **LONGEVANS strain/RRID (2026-08-12 fix)** — `STRAINS["LONGEVANS"]` was corrected from
+  `"LE-Scn2a-em1Mcwi"` / `"Strain code: 006"` to `"Long-Evans"` / `RRID:RGD_2308852`, based on the
+  rat log's own `Strain` column for this cohort. Please confirm this is correct — if so, any NWB
+  files already converted for this cohort need to be re-run to fix `Subject.strain`.
 - **Exact session start times of day** — `frametimes.npy` only gives elapsed seconds from session
   start, not wall-clock time; `session_start_time` is currently set to midnight UTC of the session
   date.
