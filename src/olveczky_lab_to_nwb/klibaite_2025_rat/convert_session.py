@@ -152,7 +152,7 @@ def session_to_nwb(
     conversion_options: dict = {}
 
     source_data["DANNCE"] = dict(
-        file_path=str(sdannce_mat),
+        file_paths=str(sdannce_mat),
         videos_folder_path=session_dir_path / "videos",
         landmark_names=SDANNCE_LANDMARK_NAMES,
         subject_name=f"rat{rat_idx}",
@@ -203,20 +203,20 @@ def session_to_nwb(
         f"session: {rat1_id} (rat1) vs {rat2_id} (rat2)."
     )
 
-    # Inject skeleton edges and sDANNCE labels into Behavior/Pose metadata. Must include all
+    # Inject skeleton edges and sDANNCE labels into the top-level Pose metadata. Must include all
     # schema-required fields (name, nodes) so validate_metadata passes; add_to_nwbfile deep-merges
     # this with get_metadata() via DeepDict.deep_update (a key-for-key merge, not name-based), and
-    # DANNCEInterface looks up the skeleton via PoseEstimations[pose_key]["skeleton_metadata_key"]
-    # (which defaults to pose_key) -- so the override below MUST be keyed by pose_key itself (not
-    # the Skeleton's descriptive "name" field) for edges to actually replace the empty default.
+    # DANNCEInterface looks up the skeleton via Skeletons[pose_key] and the container's overrides
+    # via MultiCameraPoseEstimations[pose_key] -- so both overrides below MUST be keyed by pose_key
+    # itself (not the descriptive "name" fields) for them to actually replace the defaults.
     skeleton_key = f"Skeleton{pose_key}_{f'rat{rat_idx}'.capitalize()}"
-    behavior_pose = metadata.setdefault("Behavior", {}).setdefault("Pose", {})
-    behavior_pose.setdefault("Skeletons", {})[pose_key] = {
+    pose_metadata = metadata.setdefault("Pose", {})
+    pose_metadata.setdefault("Skeletons", {})[pose_key] = {
         "name": skeleton_key,
         "nodes": SDANNCE_LANDMARK_NAMES,
         "edges": SDANNCE_SKELETON_EDGES,
     }
-    behavior_pose.setdefault("PoseEstimations", {})[pose_key] = {
+    pose_metadata.setdefault("MultiCameraPoseEstimations", {})[pose_key] = {
         "name": pose_key,
         "source_software": "sDANNCE",
         "scorer": "sDANNCE",
