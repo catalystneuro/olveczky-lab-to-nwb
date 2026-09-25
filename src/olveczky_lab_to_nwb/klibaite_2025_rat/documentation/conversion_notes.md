@@ -216,15 +216,25 @@ requires installing from `main`, not yet on PyPI), `ndx-pose>=0.4.0`, `scipy`, `
   and lab correspondence) and `get_subject_metadata(rat_id, cohort, rat_log_path)`, which reads
   the matching sheet of `ugne_rat_log.xlsx` and returns `subject_id`, `sex` (currently always
   `"U"`), `date_of_birth`, `strain`, `genotype`, `description`.
-- **HERD ontology annotation (2026-08-12):** NeuroConv (`neuroconv.tools.ontology`) automatically
-  annotates `Subject.species` (*Rattus norvegicus* -> NCBITaxon) and, when recognized, `Subject.strain`
-  with a machine-readable RRID reference stored in-file (`/general/external_resources`). Its
-  curated strain table only recognizes generic off-the-shelf lines (`"Long-Evans"` -> the
-  LONGEVANS cohort resolves automatically); the lab-specific knockout lines (SCN2A, ARID1B, CHD8,
-  GRINB, NRXN1, FRAGILEX) don't have a generic RRID, so `utils/subject_metadata.get_strain_ontology_mapping()`
-  builds an explicit `metadata["Strain"]` override from the same `STRAINS` RRIDs, wired in
-  `convert_session.py`. No brain-region annotation applies to this dataset (pose/behavior only,
-  no electrodes/imaging planes/fiber photometry).
+- **HERD ontology annotation (updated 2026-09-25):** NeuroConv (`neuroconv.tools.ontology`) writes
+  machine-readable ontology references in-file (`/general/external_resources`) only for the terms
+  stated in `metadata["ontology"]`. Each sub-map (`species`, `strain`, `anatomy`,
+  `brain_regions`) is keyed by the exact value string it annotates, and each term is a
+  `{"id": <CURIE>, "uri": <URI>}` dict. NeuroConv no longer infers terms during conversion; the
+  `infer_*_ontology_metadata()` helpers are opt-in. This replaces the earlier top-level
+  `metadata["Strain"]` / `metadata["Anatomy"]` overrides, which newer NeuroConv now ignores.
+  `convert_session.py` builds the block once the `Subject` metadata is final:
+  - `species`: `infer_species_ontology_metadata()` (*Rattus norvegicus* -> `NCBITaxon:10116`).
+  - `strain`: `utils/subject_metadata.get_strain_ontology_mapping()`, which maps every
+    `STRAINS` designation to its RRID. NeuroConv's curated table only knows generic lines such as
+    `"Long-Evans"`, not the lab knockout lines (SCN2A, ARID1B, CHD8, GRINB, NRXN1, FRAGILEX).
+  - `anatomy`: `utils/constants.get_anatomy_ontology_mapping()`, which maps all 23 rat23 nodes to
+    UBERON through their base structure (`"ShoulderLeft"` -> `"Shoulder"`; `"TailBase"` -> `"Tail"`
+    via NeuroConv's aliases). Left and right share one term.
+
+  Verified on an ARID1B stub conversion: each rat's file has 25 references (1 species,
+  1 strain, 23 skeleton nodes). No brain-region annotation applies to this dataset
+  (pose/behavior only, with no electrodes, imaging planes or fiber photometry).
 
 ## Temporal Alignment
 

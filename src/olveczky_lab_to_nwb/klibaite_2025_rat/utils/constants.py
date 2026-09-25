@@ -5,10 +5,10 @@
 # recognizes the base structure ("Shoulder", "Hand", ...) but not this skeleton's own
 # "<Structure><Left|Right>" naming convention, and UBERON doesn't distinguish laterality as
 # separate terms, so both sides of a bilateral landmark reuse the same UBERON reference. Names not
-# listed here either already resolve directly ("Snout") or via NeuroConv's built-in alias list
-# ("TailBase" -> "Tail"). "SpineFront"/"SpineMiddle"/"SpineLow" all map to the single generic
-# "Spine" (vertebral column) term -- NeuroConv's vocabulary does not distinguish anteroposterior
-# spine subdivisions.
+# listed here are looked up as-is: they resolve directly ("Snout") or via NeuroConv's built-in
+# alias list ("TailBase" -> "Tail"). "SpineFront"/"SpineMiddle"/"SpineLow" all map to the single
+# generic "Spine" (vertebral column) term -- NeuroConv's vocabulary does not distinguish
+# anteroposterior spine subdivisions.
 _ANATOMY_BASE_STRUCTURE: dict[str, str] = {
     "EarLeft": "Ear",
     "EarRight": "Ear",
@@ -35,11 +35,13 @@ _ANATOMY_BASE_STRUCTURE: dict[str, str] = {
 
 
 def get_anatomy_ontology_mapping() -> dict:
-    """Build the ``metadata["Anatomy"]`` HERD override mapping for the rat23 skeleton.
+    """Build the ``metadata["ontology"]["anatomy"]`` HERD term map for the rat23 skeleton.
 
-    See :data:`_ANATOMY_BASE_STRUCTURE` for why an explicit override is needed: NeuroConv's
-    curated anatomy table doesn't recognize this skeleton's ``"<Structure><Left|Right>"`` node
-    naming, only the base structure name.
+    NeuroConv only writes the anatomy terms stated in ``metadata["ontology"]["anatomy"]`` (it does
+    not infer them during conversion), so this resolves every rat23 landmark name explicitly. See
+    :data:`_ANATOMY_BASE_STRUCTURE` for how landmark names map to NeuroConv's curated anatomy table,
+    which doesn't recognize this skeleton's ``"<Structure><Left|Right>"`` node naming, only the
+    base structure name.
 
     Returns
     -------
@@ -50,8 +52,8 @@ def get_anatomy_ontology_mapping() -> dict:
     from neuroconv.tools.ontology import get_anatomy_term
 
     mapping = {}
-    for landmark_name, base_name in _ANATOMY_BASE_STRUCTURE.items():
-        term = get_anatomy_term(base_name)
+    for landmark_name in SDANNCE_LANDMARK_NAMES:
+        term = get_anatomy_term(_ANATOMY_BASE_STRUCTURE.get(landmark_name, landmark_name))
         if term is None:
             continue
         mapping[landmark_name] = {"id": term.curie, "uri": term.entity_uri}

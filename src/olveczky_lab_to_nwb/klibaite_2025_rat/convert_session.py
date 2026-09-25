@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Union
 
 import yaml
+from neuroconv.tools.ontology import infer_species_ontology_metadata
 from neuroconv.utils import dict_deep_update
 
 from olveczky_lab_to_nwb.klibaite_2025_rat.nwbconverter import Klibaite2025NWBConverter
@@ -188,16 +189,6 @@ def session_to_nwb(
     with open(_GENERAL_METADATA_YAML) as f:
         metadata = dict_deep_update(metadata, yaml.safe_load(f))
 
-    # HERD ontology annotation: Subject.species (Rattus norvegicus) is resolved automatically by
-    # NeuroConv's curated species table. Subject.strain is cohort-specific lab knockout lines
-    # NeuroConv doesn't know about offline, so map each to its RRID explicitly (see
-    # get_strain_ontology_mapping's docstring). The rat23 skeleton's node names
-    # ("ShoulderLeft", ...) aren't recognized by NeuroConv's curated anatomy table either (only
-    # the base structure, e.g. "Shoulder", is), so map each to its UBERON term explicitly (see
-    # get_anatomy_ontology_mapping's docstring).
-    metadata["Strain"] = get_strain_ontology_mapping()
-    metadata["Anatomy"] = get_anatomy_ontology_mapping()
-
     if subject_metadata:
         metadata["Subject"] = dict_deep_update(metadata["Subject"], subject_metadata)
     else:
@@ -205,6 +196,19 @@ def session_to_nwb(
         metadata["Subject"][
             "description"
         ] = f"Rat {rat_id}, cohort group {cohort}. Paired with {paired_rat_id} in this session."
+
+    # HERD ontology annotation: NeuroConv writes only the terms stated in metadata["ontology"],
+    # keyed by the exact value they annotate, and infers nothing during conversion.
+    # Subject.species (Rattus norvegicus) resolves from NeuroConv's curated species table.
+    # Subject.strain covers lab knockout lines NeuroConv's table doesn't know, so every cohort is
+    # mapped to its RRID explicitly (see get_strain_ontology_mapping). The rat23 skeleton's node
+    # names ("ShoulderLeft", ...) are mapped to UBERON via their base structure, e.g. "Shoulder"
+    # (see get_anatomy_ontology_mapping).
+    metadata["ontology"] = dict_deep_update(
+        metadata.get("ontology", {}),
+        {"strain": get_strain_ontology_mapping(), "anatomy": get_anatomy_ontology_mapping()},
+    )
+    infer_species_ontology_metadata(metadata)
 
     metadata["NWBFile"]["session_id"] = session_id
     metadata["NWBFile"]["session_start_time"] = session_date.isoformat()
