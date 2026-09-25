@@ -49,17 +49,15 @@ Code for this conversion is located at
 Clone the repository and install in editable mode with the conversion-specific extra:
 
 ```bash
-git clone https://github.com/catalystneuro/olveczky-lab-to-nwb
-cd olveczky-lab-to-nwb
-pip install -e ".[social_behavior]"
+conda env create -f make_env.yml
+conda activate olveczky-lab-to-nwb-env
 ```
 
-> **Note:** `DANNCEConverter` requires a version of `neuroconv` with DANNCE support. If it is not
-> yet available on PyPI, install NeuroConv from the `main` branch:
->
-> ```bash
-> pip install "git+https://github.com/catalystneuro/neuroconv.git@main"
-> ```
+Or with pip:
+
+```bash
+pip install -e .
+```
 
 ## Usage
 

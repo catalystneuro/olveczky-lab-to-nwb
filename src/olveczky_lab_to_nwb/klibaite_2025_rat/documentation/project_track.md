@@ -60,7 +60,13 @@ All 6 cohorts (SCN2A, ARID1B, CHD8, GRINB, NRXN1, LONGEVANS) discovered and stub
 - [x] Confirm skin_contacts_symmetric.h5 schema (frames, contacts, vertex_body_map)
 - [x] Lab metadata reply received (2026-04-29) — keypoint names, DOB source, WT/KO mapping, publication DOI, Dataverse URL, experimenter list, SFARI grant
 - [x] Integrate lab reply: constants.py (23 rat23 joints + edges), subject_metadata.py (xlsx loaders), updated metadata YAML and converter
-- [ ] **Pending** — per-rat exact weights, per-rat sex, exact session start times of day
+- [x] Lab reply received (2026-09-08, Lily Cao) — per-rat sex: all rats are male; confirmed
+  `save_data_AVG0.mat` (full session) should be read instead of `save_data_AVG.mat` (missing
+  the last ~20s chunk) — see [`metadata_request_email.md`](metadata_request_email.md)
+- [x] Integrate 2026-09-08 reply: `subject_metadata.py` now sets `sex="M"`;
+  `convert_session.py::find_sdannce_mat()` now prefers `save_data_AVG0.mat`, falling back to
+  `save_data_AVG.mat` only when no sibling exists
+- [ ] **Pending** — exact session start times of day
 - [x] Create GitHub remote for this repo
 
 ---

@@ -13,7 +13,7 @@ class Klibaite2025NWBConverter(NWBConverter):
     """Primary conversion class for the Klibaite 2025 Rat social behavior dataset.
 
     Data streams:
-    - DANNCE: 3D pose estimation (save_data_AVG.mat) combined with the 6-camera behavioral video
+    - DANNCE: 3D pose estimation (save_data_AVG0.mat) combined with the 6-camera behavioral video
       (.mp4 per camera, external link) via ``DANNCEConverter``, which links each camera's source
       video and calibrated Device (from calibration/hires_camN_params.mat) automatically.
     - SkinContacts (optional): pairwise vertex contact events (skin_contacts_symmetric.h5)

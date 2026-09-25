@@ -1,0 +1,9 @@
+name: olveczky-lab-to-nwb-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.11,<3.13
+  - pip
+  - pip:
+      - --editable .
