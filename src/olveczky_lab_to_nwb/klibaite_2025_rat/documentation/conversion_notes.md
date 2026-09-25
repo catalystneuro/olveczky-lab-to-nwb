@@ -216,6 +216,25 @@ requires installing from `main`, not yet on PyPI), `ndx-pose>=0.4.0`, `scipy`, `
   and lab correspondence) and `get_subject_metadata(rat_id, cohort, rat_log_path)`, which reads
   the matching sheet of `ugne_rat_log.xlsx` and returns `subject_id`, `sex` (currently always
   `"U"`), `date_of_birth`, `strain`, `genotype`, `description`.
+- **HERD ontology annotation (updated 2026-09-25):** NeuroConv (`neuroconv.tools.ontology`) writes
+  machine-readable ontology references in-file (`/general/external_resources`) only for the terms
+  stated in `metadata["ontology"]`. Each sub-map (`species`, `strain`, `anatomy`,
+  `brain_regions`) is keyed by the exact value string it annotates, and each term is a
+  `{"id": <CURIE>, "uri": <URI>}` dict. NeuroConv no longer infers terms during conversion; the
+  `infer_*_ontology_metadata()` helpers are opt-in. This replaces the earlier top-level
+  `metadata["Strain"]` / `metadata["Anatomy"]` overrides, which newer NeuroConv now ignores.
+  `convert_session.py` builds the block once the `Subject` metadata is final:
+  - `species`: `infer_species_ontology_metadata()` (*Rattus norvegicus* -> `NCBITaxon:10116`).
+  - `strain`: `utils/subject_metadata.get_strain_ontology_mapping()`, which maps every
+    `STRAINS` designation to its RRID. NeuroConv's curated table only knows generic lines such as
+    `"Long-Evans"`, not the lab knockout lines (SCN2A, ARID1B, CHD8, GRINB, NRXN1, FRAGILEX).
+  - `anatomy`: `utils/constants.get_anatomy_ontology_mapping()`, which maps all 23 rat23 nodes to
+    UBERON through their base structure (`"ShoulderLeft"` -> `"Shoulder"`; `"TailBase"` -> `"Tail"`
+    via NeuroConv's aliases). Left and right share one term.
+
+  Verified on an ARID1B stub conversion: each rat's file has 25 references (1 species,
+  1 strain, 23 skeleton nodes). No brain-region annotation applies to this dataset
+  (pose/behavior only, with no electrodes, imaging planes or fiber photometry).
 
 ## Temporal Alignment
 
@@ -265,6 +284,10 @@ All details are in the report, including a per-cohort, per-session table with pa
 
 Items that need input from the lab (Lily Cao / Ugne Klibaite) before they can be resolved:
 
+- **LONGEVANS strain/RRID (2026-08-12 fix)** — `STRAINS["LONGEVANS"]` was corrected from
+  `"LE-Scn2a-em1Mcwi"` / `"Strain code: 006"` to `"Long-Evans"` / `RRID:RGD_2308852`, based on the
+  rat log's own `Strain` column for this cohort. Please confirm this is correct — if so, any NWB
+  files already converted for this cohort need to be re-run to fix `Subject.strain`.
 - **Exact session start times of day** — `frametimes.npy` only gives elapsed seconds from session
   start, not wall-clock time; `session_start_time` is currently set to midnight UTC of the session
   date.
