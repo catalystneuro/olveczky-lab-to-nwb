@@ -163,6 +163,13 @@ def session_to_nwb(
         source_data["DANNCE"]["calibration_path"] = str(calibration_path)
     else:
         print(f"  [WARNING] Calibration directory not found, skipping camera calibration: {calibration_path}")
+    # The Label3D file's sync table maps each prediction's sampleID to a video frame, so the pose is
+    # timed by Camera1's frametimes. Sessions may hold several Label3D files sharing the same table.
+    label3d_files = sorted(session_dir_path.glob("*Label3D_dannce.mat"))
+    if label3d_files:
+        source_data["DANNCE"]["sync_path"] = str(label3d_files[-1])
+    else:
+        print(f"  [WARNING] No *Label3D_dannce.mat sync table found in {session_dir_path}")
     conversion_options["DANNCE"] = dict(stub_test=stub_test)
 
     if contacts_file_path is not None:
@@ -208,20 +215,22 @@ def session_to_nwb(
     # this with get_metadata() via DeepDict.deep_update (a key-for-key merge, not name-based), and
     # DANNCEInterface looks up the skeleton via Skeletons[pose_key] and the container's overrides
     # via MultiCameraPoseEstimations[pose_key] -- so both overrides below MUST be keyed by pose_key
-    # itself (not the descriptive "name" fields) for them to actually replace the defaults.
+    # itself (not the descriptive "name" fields) for them to override the defaults. The overrides are
+    # merged into the defaults, not replacing them: the defaults also hold the skeleton link, the
+    # per-camera PoseEstimation children (camera and video links) and each series' unit/confidence.
     skeleton_key = f"Skeleton{pose_key}_{f'rat{rat_idx}'.capitalize()}"
     pose_metadata = metadata.setdefault("Pose", {})
-    pose_metadata.setdefault("Skeletons", {})[pose_key] = {
-        "name": skeleton_key,
-        "nodes": SDANNCE_LANDMARK_NAMES,
-        "edges": SDANNCE_SKELETON_EDGES,
-    }
-    pose_metadata.setdefault("MultiCameraPoseEstimations", {})[pose_key] = {
-        "name": pose_key,
-        "source_software": "sDANNCE",
-        "scorer": "sDANNCE",
-        "description": "3D keypoint coordinates estimated using sDANNCE (social DANNCE).",
-    }
+    pose_metadata.setdefault("Skeletons", {}).setdefault(pose_key, {}).update(
+        name=skeleton_key,
+        nodes=SDANNCE_LANDMARK_NAMES,
+        edges=SDANNCE_SKELETON_EDGES,
+    )
+    pose_metadata.setdefault("MultiCameraPoseEstimations", {}).setdefault(pose_key, {}).update(
+        name=pose_key,
+        source_software="sDANNCE",
+        scorer="sDANNCE",
+        description="3D keypoint coordinates estimated using sDANNCE (social DANNCE).",
+    )
 
     # ── Run conversion ───────────────────────────────────────────────────────
     converter.run_conversion(
