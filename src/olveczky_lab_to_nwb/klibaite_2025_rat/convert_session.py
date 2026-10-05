@@ -248,8 +248,8 @@ def session_to_nwb(
 if __name__ == "__main__":
     from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
 
-    data_dir = Path("H:/Olveczky-CN-data-share/ugne")
-    output_dir = Path("H:/olveczky-nwbfiles")
+    data_dir = Path("F:/Olveczky-CN-data-share/ugne")
+    output_dir = Path("F:/olveczky-nwbfiles")
     cohort = "ARID1B"
     encounter = "SOC1"
     session = "2022_10_17_M1_M2"
@@ -267,6 +267,25 @@ if __name__ == "__main__":
         encounter=encounter,
         subject_metadata=subject_metadata,
         contacts_file_path=contacts_file,
-        stub_test=True,
+        stub_test=False,
+        verbose=True,
+    )
+
+    session = "2022_10_17_M3_M4"
+    session_dir = data_dir / cohort / f"{cohort}_{encounter}" / session
+    contacts_file = data_dir / "social_touch" / f"{cohort}_{encounter}" / session / "skin_contacts_symmetric.h5"
+    rat_log_path = data_dir / "ugne_rat_log.xlsx"
+
+    subject_metadata = get_subject_metadata(rat_id="M1", cohort=cohort, rat_log_path=rat_log_path)
+
+    session_to_nwb(
+        session_dir_path=session_dir,
+        output_dir_path=output_dir,
+        rat_idx=1,
+        cohort=cohort,
+        encounter=encounter,
+        subject_metadata=subject_metadata,
+        contacts_file_path=contacts_file,
+        stub_test=False,
         verbose=True,
     )
