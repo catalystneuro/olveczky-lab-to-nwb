@@ -1,0 +1,35 @@
+# Conda environment for ingesting the Olveczky (Klibaite 2025) NWB files into Spyglass.
+#
+# Spyglass comes from the camera/pose branch `ndx-pose-multicamera` (off Spyglass master;
+# adds support for ndx-pose 0.4 CalibratedCamera devices and MultiCameraPoseEstimation).
+# Until that branch is published it is installed editable from a local clone at
+# ../spyglass; bootstrap_wsl.sh does this. No fiber-photometry branch is involved.
+#
+# Do not create this env with `conda env create` alone -- use bootstrap_wsl.sh, which
+# creates it from this file and then applies pins that pip cannot resolve together with
+# the packages below, because they conflict with requirements Spyglass declares:
+#
+#   1. ndx-pose @ rly/ndx-pose b1f6980, with pynwb==4.2.0 and hdmf==6.2.0
+#      The NWB files contain ndx-pose 0.4 types (CalibratedCamera,
+#      MultiCameraPoseEstimation) from this unreleased commit. It needs hdmf>=6.1, which
+#      conflicts with ndx-franklab-novela's `hdmf<5` (a Spyglass dependency). pip reports
+#      the conflict, but Spyglass imports and ingests fine with it.
+#   2. kachery-cloud, then pubnub<6.4
+#      kachery-cloud wants pubnub>=7.2, Spyglass wants pubnub<6.4; re-pinning pubnub
+#      afterwards keeps both importable.
+#
+#   wsl -d Ubuntu-24.04 -- bash /mnt/c/Users/algab/CatalystNeuro/olveczky-lab-to-nwb/spyglass/bootstrap_wsl.sh
+
+name: spyglass-olveczky
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - hdf5
+  - git
+  - pip:
+      - ndx-franklab-novela
+      - pyyaml
+      - jupyter
+      - matplotlib
