@@ -1,0 +1,36 @@
+# Local Spyglass MySQL database for the Olveczky lab (Klibaite 2025, ARID1B) ingestion.
+#
+# Runs alongside the other local Spyglass databases without touching them: its own
+# container name, its own named volume, and host port 3309 (3306 and 3307 are used by
+# other projects on this machine).
+#
+# Image: datajoint/mysql (pre-configures the mysql_native_password auth plugin so
+# PyMySQL/DataJoint connect without extra flags). Tag 8.0 matches the MySQL version
+# current DataJoint (>=0.14) expects.
+#
+# Storage: the MySQL data directory lives in a Docker *named volume*, NOT a bind mount
+# to the data drive. The external data disk is exFAT, which has no POSIX permissions or
+# file locking and would corrupt InnoDB. The named volume is stored inside the Docker
+# Desktop WSL2 VM (ext4).
+#
+#   Start:        docker compose up -d
+#   Status:       docker compose ps
+#   Stop:         docker compose stop
+#   Wipe DB:      docker compose down -v   (deletes ONLY this project's named volume)
+
+name: spyglass-olveczky
+
+services:
+  db:
+    image: datajoint/mysql:8.0
+    container_name: spyglass-olveczky-db
+    ports:
+      - "3309:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=tutorial   # must match dj_local_conf.json
+    volumes:
+      - spyglass-olveczky-mysql-data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  spyglass-olveczky-mysql-data:
