@@ -10,9 +10,9 @@ STRAINS: dict = (
         # Keys match the `cohort` argument used throughout the pipeline, i.e. the data-share
         # directory names (e.g. "ugne/LONGEVANS/", "ugne/GRINB/"), NOT the rat-log sheet names.
         "LONGEVANS": {
-            "strain": "LE-Scn2a-em1Mcwi",
+            "strain": "Long-Evans",
             "supplier": "Charles River Laboratories",
-            "RRID": "Strain code: 006",
+            "RRID": "RGD_2308852",
         },
         "SCN2A": {"strain": "LE-Scn2a-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_25394530"},
         "CNTNAP": {"strain": "LE-Cntnap2-em1Mcwi", "supplier": "Medical College of Wisconsin", "RRID": "RGD_25330087"},

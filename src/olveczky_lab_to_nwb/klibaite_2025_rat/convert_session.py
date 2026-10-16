@@ -20,6 +20,7 @@ from neuroconv.utils import dict_deep_update
 
 from olveczky_lab_to_nwb.klibaite_2025_rat.nwbconverter import Klibaite2025NWBConverter
 from olveczky_lab_to_nwb.klibaite_2025_rat.utils.constants import SDANNCE_LANDMARK_NAMES, SDANNCE_SKELETON_EDGES
+from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import STRAINS
 
 _GENERAL_METADATA_YAML = Path(__file__).parent / "general_metadata.yaml"
 
@@ -195,6 +196,19 @@ def session_to_nwb(
             "description"
         ] = f"Rat {rat_id}, cohort group {cohort}. Paired with {paired_rat_id} in this session."
 
+    # The external-resource (HERD) terms for species, strain and the rat23 skeleton nodes are stated
+    # in general_metadata.yaml, and run_conversion writes them into the file. The strain RRIDs also
+    # live in STRAINS (they go into the subject description), so check the two agree.
+    strain = metadata["Subject"].get("strain")
+    if strain is not None:
+        expected_id = f"RRID:{STRAINS[cohort]['RRID']}"
+        strain_term = metadata["ExternalResources"]["strain"].get(strain)
+        if strain_term is None or strain_term["id"] != expected_id:
+            raise ValueError(
+                f"general_metadata.yaml must map strain {strain!r} (cohort {cohort}) to {expected_id} under "
+                f"ExternalResources.strain, found {strain_term!r}."
+            )
+
     metadata["NWBFile"]["session_id"] = session_id
     metadata["NWBFile"]["session_start_time"] = session_date.isoformat()
     metadata["NWBFile"]["session_description"] = (
@@ -216,12 +230,16 @@ def session_to_nwb(
         "nodes": SDANNCE_LANDMARK_NAMES,
         "edges": SDANNCE_SKELETON_EDGES,
     }
-    pose_metadata.setdefault("MultiCameraPoseEstimations", {})[pose_key] = {
-        "name": pose_key,
-        "source_software": "sDANNCE",
-        "scorer": "sDANNCE",
-        "description": "3D keypoint coordinates estimated using sDANNCE (social DANNCE).",
-    }
+    # Update the container entry instead of replacing it: the interface's default entry also holds
+    # "skeleton_metadata_key", and without it no Skeleton is written.
+    pose_metadata.setdefault("MultiCameraPoseEstimations", {}).setdefault(pose_key, {}).update(
+        {
+            "name": pose_key,
+            "source_software": "sDANNCE",
+            "scorer": "sDANNCE",
+            "description": "3D keypoint coordinates estimated using sDANNCE (social DANNCE).",
+        }
+    )
 
     # ── Run conversion ───────────────────────────────────────────────────────
     converter.run_conversion(
@@ -258,6 +276,6 @@ if __name__ == "__main__":
         encounter=encounter,
         subject_metadata=subject_metadata,
         contacts_file_path=contacts_file,
-        stub_test=True,
+        stub_test=False,
         verbose=True,
     )

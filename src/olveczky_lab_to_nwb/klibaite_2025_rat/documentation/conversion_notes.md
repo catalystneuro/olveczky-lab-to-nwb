@@ -216,6 +216,22 @@ requires installing from `main`, not yet on PyPI), `ndx-pose>=0.4.0`, `scipy`, `
   and lab correspondence) and `get_subject_metadata(rat_id, cohort, rat_log_path)`, which reads
   the matching sheet of `ugne_rat_log.xlsx` and returns `subject_id`, `sex` (currently always
   `"U"`), `date_of_birth`, `strain`, `genotype`, `description`.
+- **External resources (HERD) annotation (updated 2026-10-16):** NeuroConv
+  (`neuroconv.tools.external_resources`) writes machine-readable ontology references in-file
+  (`/general/external_resources`) for the terms stated in `metadata["ExternalResources"]`. Each
+  sub-map is keyed by the exact value string it annotates, and each term is a
+  `{"id": <CURIE>, "uri": <URI>}` dict. All terms are stated in `general_metadata.yaml`:
+  - `species`: *Rattus norvegicus* -> `NCBITaxon:10116`.
+  - `strain`: every `STRAINS` designation -> its RRID (Long-Evans and the MCW knockout lines).
+    `convert_session.py` raises if a subject's strain is missing from the YAML or its RRID differs
+    from `STRAINS`, which also writes the RRID into the subject description.
+  - `anatomy`: all 23 rat23 nodes -> UBERON. Left and right share one term (YAML anchors), the three
+    spine points share the vertebral column term, and `"TailBase"` uses the tail term because
+    UBERON has no tail-base term.
+
+  Verified on an ARID1B stub conversion: each rat's file has 25 references (1 species,
+  1 strain, 23 skeleton nodes). No brain-region annotation applies to this dataset
+  (pose/behavior only, with no electrodes, imaging planes or fiber photometry).
 
 ## Temporal Alignment
 
@@ -265,6 +281,10 @@ All details are in the report, including a per-cohort, per-session table with pa
 
 Items that need input from the lab (Lily Cao / Ugne Klibaite) before they can be resolved:
 
+- **LONGEVANS strain/RRID (2026-08-12 fix)** — `STRAINS["LONGEVANS"]` was corrected from
+  `"LE-Scn2a-em1Mcwi"` / `"Strain code: 006"` to `"Long-Evans"` / `RRID:RGD_2308852`, based on the
+  rat log's own `Strain` column for this cohort. Please confirm this is correct — if so, any NWB
+  files already converted for this cohort need to be re-run to fix `Subject.strain`.
 - **Exact session start times of day** — `frametimes.npy` only gives elapsed seconds from session
   start, not wall-clock time; `session_start_time` is currently set to midnight UTC of the session
   date.
