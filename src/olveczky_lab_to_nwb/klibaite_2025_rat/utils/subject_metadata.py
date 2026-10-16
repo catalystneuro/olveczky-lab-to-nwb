@@ -31,34 +31,6 @@ SHEET_NAME_OVERRIDES: dict = {
 }
 
 
-def get_strain_ontology_mapping() -> dict:
-    """Build the ``metadata["ontology"]["strain"]`` HERD term map (see neuroconv's ontology tools).
-
-    NeuroConv only writes the strain terms stated in ``metadata["ontology"]["strain"]`` (it does
-    not infer them during conversion), and its curated strain table
-    (``neuroconv.tools.ontology.STRAIN_TERMS``) only recognizes common off-the-shelf lines (e.g.
-    ``"Long-Evans"``), not lab-specific knockout lines like ``"LE-Scn2a-em1Mcwi"``. This maps every
-    cohort's strain designation (as written to ``Subject.strain`` by :func:`get_subject_metadata`)
-    to its RRID from :data:`STRAINS`, so every subject gets a machine-readable RRID reference
-    in-file (HERD).
-
-    Returns
-    -------
-    dict
-        ``{strain designation: {"id": "RRID:...", "uri": "https://scicrunch.org/resolver/RRID:..."}}``
-        for each cohort in :data:`STRAINS`.
-    """
-    mapping = {}
-    for info in STRAINS.values():
-        strain_designation = info["strain"]
-        rrid = info["RRID"]
-        mapping[strain_designation] = {
-            "id": f"RRID:{rrid}",
-            "uri": f"https://scicrunch.org/resolver/RRID:{rrid}",
-        }
-    return mapping
-
-
 def get_subject_metadata(
     rat_id: str,
     cohort: str,
