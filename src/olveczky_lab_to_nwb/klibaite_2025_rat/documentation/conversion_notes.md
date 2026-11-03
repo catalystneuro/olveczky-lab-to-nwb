@@ -16,7 +16,7 @@ substantially with the Uchida lab conversion (same facility; see `uchida-lab-to-
 - **Genotype groups:** SCN2A, ARID1B, CHD8, GRIN2B ("GRINB"), NRXN1, and Long-Evans WT.
 - **Downstream target:** DANDI Archive (public — this is a published line) + Spyglass ingestion
   (PoseEstimation via ndx-pose, ImageSeries external links).
-- **Publication:** Klibaite U, Li T, Aldarondo D, Alkoad J, Olveczky B, Dunn T, Cao L. Mapping the
+- **Publication:** Klibaite U, Li T, Aldarondo D, Akoad J, Olveczky B, Dunn T, Cao L. Mapping the
   landscape of social behavior. *Cell.* 2025. doi:10.1016/j.cell.2025.01.044
 - **SFARI funding:** grant 272165.
 - Electrophysiology (flexible probes, Neuropixels, tetrodes) and fiber photometry are planned by
@@ -216,22 +216,28 @@ requires installing from `main`, not yet on PyPI), `ndx-pose>=0.4.0`, `scipy`, `
   and lab correspondence) and `get_subject_metadata(rat_id, cohort, rat_log_path)`, which reads
   the matching sheet of `ugne_rat_log.xlsx` and returns `subject_id`, `sex` (currently always
   `"U"`), `date_of_birth`, `strain`, `genotype`, `description`.
-- **External resources (HERD) annotation (updated 2026-10-16):** NeuroConv
-  (`neuroconv.tools.external_resources`) writes machine-readable ontology references in-file
-  (`/general/external_resources`) for the terms stated in `metadata["ExternalResources"]`. Each
-  sub-map is keyed by the exact value string it annotates, and each term is a
-  `{"id": <CURIE>, "uri": <URI>}` dict. All terms are stated in `general_metadata.yaml`:
+- **External resources (HERD) annotation (updated 2026-11-03):** NeuroConv
+  (`neuroconv.tools.external_resources.add_external_resources_to_nwbfile`, on neuroconv main) writes
+  machine-readable ontology references in-file (`/general/external_resources`) for the terms stated
+  in `metadata["ExternalResources"]`. Nothing is inferred. Each map is keyed by the exact string it
+  annotates, and each term is a `{"id": <CURIE>, "uri": <URI>}` dict. All terms are stated in
+  `general_metadata.yaml` (see catalystneuro/neuroconv#1771 for the design):
   - `species`: *Rattus norvegicus* -> `NCBITaxon:10116`.
   - `strain`: every `STRAINS` designation -> its RRID (Long-Evans and the MCW knockout lines).
     `convert_session.py` raises if a subject's strain is missing from the YAML or its RRID differs
     from `STRAINS`, which also writes the RRID into the subject description.
-  - `anatomy`: all 23 rat23 nodes -> UBERON. Left and right share one term (YAML anchors), the three
-    spine points share the vertebral column term, and `"TailBase"` uses the tail term because
-    UBERON has no tail-base term.
+  - `anatomical_structures` (was `anatomy`): all 23 rat23 nodes -> UBERON. Left and right share one
+    term (YAML anchors), the three spine points share the vertebral column term, and `"TailBase"`
+    uses the tail term because UBERON has no tail-base term.
+  - `institution`: Harvard University -> `ror:03vek6s52`.
+  - `experimenter`: ORCID iDs for Klibaite and Aldarondo, whose ORCID records list Olveczky lab
+    papers. The other five experimenters have no verified iD and are left out. TODO: ask the lab
+    for the missing ORCID iDs.
 
-  Verified on an ARID1B stub conversion: each rat's file has 25 references (1 species,
-  1 strain, 23 skeleton nodes). No brain-region annotation applies to this dataset
-  (pose/behavior only, with no electrodes, imaging planes or fiber photometry).
+  Verified on an ARID1B stub conversion against neuroconv main: each rat's file has 28 references
+  (1 species, 1 strain, 23 skeleton nodes, 2 experimenters, 1 institution). No brain-region
+  annotation applies to this dataset (pose/behavior only, with no electrodes,
+  imaging planes or fiber photometry).
 
 ## Temporal Alignment
 

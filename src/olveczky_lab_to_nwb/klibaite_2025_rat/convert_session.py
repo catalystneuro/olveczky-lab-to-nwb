@@ -196,9 +196,10 @@ def session_to_nwb(
             "description"
         ] = f"Rat {rat_id}, cohort group {cohort}. Paired with {paired_rat_id} in this session."
 
-    # The external-resource (HERD) terms for species, strain and the rat23 skeleton nodes are stated
-    # in general_metadata.yaml, and run_conversion writes them into the file. The strain RRIDs also
-    # live in STRAINS (they go into the subject description), so check the two agree.
+    # The external-resource (HERD) terms for species, strain, the rat23 skeleton nodes, experimenters
+    # and institution are stated in general_metadata.yaml, and run_conversion writes them into the
+    # file. The strain RRIDs also live in STRAINS (they go into the subject description), so check
+    # the two agree.
     strain = metadata["Subject"].get("strain")
     if strain is not None:
         expected_id = f"RRID:{STRAINS[cohort]['RRID']}"

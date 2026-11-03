@@ -21,7 +21,7 @@ NWBFile:
     - Klibaite, Ugne
     - Li, Tianqing
     - Aldarondo, Diego
-    - Alkoad, Jumana
+    - Akoad, Jumana
     - Olveczky, Bence
     - Dunn, Timothy
     - Cao, Lily
@@ -41,9 +41,17 @@ Subject:
 
 # External resources (HERD). NeuroConv writes every term stated here into the file under
 # /general/external_resources during run_conversion. Each map is keyed by the exact value it
-# annotates (Subject.species, Subject.strain, Skeleton node name). IDs checked against the EBI
-# Ontology Lookup Service (UBERON, NCBITaxon) and the SciCrunch resolver (RRID) on 2026-10-16.
+# annotates (Subject.species, Subject.strain, Skeleton node name, NWBFile.experimenter name,
+# NWBFile.institution). IDs checked against the EBI Ontology Lookup Service (UBERON, NCBITaxon) and
+# the SciCrunch resolver (RRID) on 2026-10-16, and against ROR and ORCID on 2026-11-03.
 ExternalResources:
+  institution:
+    Harvard University: { id: "ror:03vek6s52", uri: "https://ror.org/03vek6s52" }
+  # Only experimenters whose ORCID record lists an Olveczky lab paper. The other names have no
+  # verified iD yet and are left out.
+  experimenter:
+    Klibaite, Ugne: { id: "orcid:0000-0001-9729-7258", uri: "https://orcid.org/0000-0001-9729-7258" }
+    Aldarondo, Diego: { id: "orcid:0000-0001-8558-7557", uri: "https://orcid.org/0000-0001-8558-7557" }
   species:
     Rattus norvegicus: { id: "NCBITaxon:10116", uri: "http://purl.obolibrary.org/obo/NCBITaxon_10116" }
   # One entry per cohort; keys must match STRAINS[cohort]["strain"] in utils/subject_metadata.py
@@ -59,7 +67,7 @@ ExternalResources:
     LE-Nrxn1-em1Mcwi: { id: "RRID:RGD_25330089", uri: "https://scicrunch.org/resolver/RRID:RGD_25330089" }
   # rat23 skeleton nodes. UBERON has no left/right terms, so both sides share one term (YAML
   # anchors), and the three spine points share the vertebral column term.
-  anatomy:
+  anatomical_structures:
     Snout: { id: "UBERON:0006333", uri: "http://purl.obolibrary.org/obo/UBERON_0006333" }  # snout
     EarLeft: &ear { id: "UBERON:0001691", uri: "http://purl.obolibrary.org/obo/UBERON_0001691" }  # external ear
     EarRight: *ear
