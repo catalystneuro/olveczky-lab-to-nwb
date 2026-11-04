@@ -29,7 +29,7 @@ substantially with the Uchida lab conversion (same facility; see `uchida-lab-to-
 | 3D pose estimation (per rat) | sDANNCE `.mat`, single-animal 3D format | `SDANNCE(_x2)/bsl0.5_FM_rat{N}/save_data_AVG0.mat` (falls back to `save_data_AVG.mat`) | `DANNCEConverter` (neuroconv), one call per rat |
 | Multi-camera video (6 cameras) | `.mp4` per camera, external file | `videos/Camera{1..6}/0.mp4` | via `DANNCEConverter` (linked automatically, shared across both rats' NWB files) |
 | Camera calibration | `.mat` per camera | `calibration/hires_cam{N}_params.mat` | via `DANNCEConverter` (`calibration_path`) — writes calibrated `Device`s |
-| Video frame times | `.npy`, shape `(2, n_frames)` | `videos/Camera1/frametimes.npy` | used to index skin-contact event timestamps only (DANNCE/video use their own internal timestamp logic) |
+| Video frame times | `.npy`, shape `(2, n_frames)` | `videos/Camera{1..6}/frametimes.npy` | time each camera's video; Camera1's also times the sDANNCE pose and the skin-contact events (see Temporal Alignment) |
 | Skin contacts *(optional, when available)* | `.h5` | `social_touch/<cohort>_<encounter>/<session>/skin_contacts_symmetric.h5` | `SkinContactsInterface` (custom) → `EventsTable` in `nwbfile.events` |
 | Subject metadata | XLSX (lab rat log) | `ugne_rat_log.xlsx` (one sheet per cohort) | `Subject`, via `utils/subject_metadata.get_subject_metadata()` |
 
@@ -149,11 +149,9 @@ session (once per rat) so both NWB files reference the same external video files
 
 ## File Inventory & Counts
 
-- **Cohorts with full data** (video + calibration + sDANNCE + skin contacts): **SCN2A** (SOC1–3),
-  **ARID1B** (SOC1–3).
-- **Cohorts with skin contacts only** (no video/sDANNCE in share yet): **CHD8, GRINB, NRXN1,
-  LONGEVANS** — `social_touch/<cohort>_SOC{N}/` folders exist, but `convert_all_sessions.py`'s
-  `DEFAULT_COHORTS` only includes `SCN2A`/`ARID1B` until full data lands.
+- **Cohorts with full data** (video + calibration + sDANNCE + skin contacts): **SCN2A, ARID1B, CHD8,
+  GRINB, NRXN1** (SOC1–3) and **LONGEVANS** (`LONGEVANS_M_SOC1`–`SOC8`), all listed in
+  `convert_all_sessions.py`'s `DEFAULT_COHORTS`. 468 social sessions in total (survey, 2026-11-04).
 - Roughly 10–30 sessions per cohort × encounter round; each session = 2 NWB files (one per rat).
 - ARID1B uses `SDANNCE_x2/` (two-rat simultaneous fit); SCN2A uses `SDANNCE/bsl0.5_FM_rat{N}/`.
   `find_sdannce_mat()` in `convert_session.py` searches both folder-name variants.
@@ -165,14 +163,16 @@ session (once per rat) so both NWB files reference the same external video files
   repeat pairings of the same or different rats across days.
 - **Species / strain:** *Rattus norvegicus*; Long-Evans background for all cohorts, including KO
   lines (confirmed by lab, 2026-04-29). Per-cohort strain/supplier/RRID lookup table is in
-  `utils/subject_metadata.py::STRAINS`.
+  `utils/subject_metadata.py::STRAINS`. The LONGEVANS cohort is `"Long-Evans"` / `RRID:RGD_2308852`,
+  taken from the rat log's `Strain` column (corrected 2026-08-12, confirmed 2026-11-04). NWB files
+  converted for this cohort before 2026-08-12 need to be re-run to fix `Subject.strain`.
 - **Subject IDs:** `f"{cohort}-{rat_id}"` (e.g. `"SCN2A-M1"`); `rat_id` (e.g. `"M1"`) is unique
   within a cohort, not globally.
 - **Per-rat metadata source:** `ugne_rat_log.xlsx`, one sheet per cohort, two-row header
   (banner + column names): `Rat ID`, `DOB`, `Genotype`, `Markings`, `Cage`, `Mother`. Read by
   `utils/subject_metadata.get_subject_metadata(rat_id, cohort, rat_log_path)`.
-- **Weight:** not available per-rat in any source seen so far (approximate range 350–600 g from
-  the paper, not written to NWB).
+- **Weight:** per-rat weights were not recorded (confirmed 2026-11-04), so `Subject.weight` is left
+  empty. The paper gives an approximate range of 350–600 g, which is not written to NWB.
 - **Sex:** not present in the rat log; lab confirmed all rats are male, so
   `get_subject_metadata()` sets `"sex": "M"` for every rat.
 
@@ -247,12 +247,40 @@ Single-clock design per session — every stream derives from the shared per-cam
 ```text
 Reference clock:   Camera1 frametimes.npy row 1 (elapsed seconds), 50 fps, 90000 frames (~30 min)
 Video (6 cameras): each camera's own frametimes.npy, linked internally by DANNCEConverter
-sDANNCE pose:      DANNCEConverter's built-in sampleID-based timestamp handling
+sDANNCE pose:      Camera1 frametimes.npy row 1, indexed by each prediction's video frame (see below)
 Skin contacts:     frametimes.npy row 1, indexed by each event's frame number (from `frames` in the .h5)
 ```
 
-`session_start_time` is set to `session_date` (midnight UTC, parsed from the session folder name)
-— no time-of-day is currently encoded (see Open Questions).
+The sDANNCE prediction files (`save_data_AVG0.mat`) record a `sampleID` per prediction, which is a row
+label, not a frame index. The video frame comes from the `sync` table of the Label3D file
+(`*Label3D_dannce.mat`) in the session folder, which `convert_session.py` passes to `DANNCEConverter` as
+`sync_path`. When a session has several Label3D files, the newest (by timestamped name) is used.
+
+Only 181 of the 468 social sessions have a Label3D file (survey of the data share, 2026-11-04):
+
+| Cohort | Sessions without a Label3D file |
+|---|---|
+| ARID1B | 63/86 |
+| CHD8 | 83/84 |
+| GRINB | 33/45 |
+| NRXN1 | 72/84 |
+| SCN2A | 36/45 |
+| LONGEVANS | 0/124 |
+
+All 321 Label3D files on the share (social and solo sessions) have a Camera1 sync table that maps
+`sampleID` 0-89999 to frames 0-89999, which covers all 90000 Camera1 frametimes. For sessions without a
+Label3D file, `convert_session.py` therefore takes each `sampleID` as the Camera1 frame, checks that the
+sampleIDs are integers within the frametimes, sets the pose times to `frametimes[sampleID]`, and prints a
+warning. Confirmed 2026-11-04: in these sessions each `sampleID` is the Camera1 frame it was predicted on.
+
+Three LONGEVANS_M_SOC3 sessions (`2022_11_10_M0_M5`, `2022_11_10_M1_M2`, `2022_11_10_M3_M4`) have no
+Camera1 `frametimes.npy`, so their pose and video cannot be timed from it.
+
+`session_start_time` is the session date parsed from the folder name, at midnight US/Eastern
+(`America/New_York`, so UTC-4 or UTC-5 depending on daylight saving time). Sessions were recorded in
+US/Eastern time, and the time of day was not recorded (both confirmed 2026-11-04): `frametimes.npy`
+holds elapsed seconds from the start of the recording, and campy's `metadata.csv` holds only the
+duration and frame rate.
 
 ## Batch Conversion Run Summary (2026-07-28)
 
@@ -283,26 +311,3 @@ Ran a stub-test (100 frames/session) conversion cohort-by-cohort across all 6 gr
 
 All details are in the report, including a per-cohort, per-session table with pass/fail per rat and metadata-completeness indicators. `documentation/project_track.md` was updated with this status for future sessions. Next step, when ready: the full (non-stub) conversion run.
 
-## Open Questions
-
-Items that need input from the lab (Lily Cao / Ugne Klibaite) before they can be resolved:
-
-- **LONGEVANS strain/RRID (2026-08-12 fix)** — `STRAINS["LONGEVANS"]` was corrected from
-  `"LE-Scn2a-em1Mcwi"` / `"Strain code: 006"` to `"Long-Evans"` / `RRID:RGD_2308852`, based on the
-  rat log's own `Strain` column for this cohort. Please confirm this is correct — if so, any NWB
-  files already converted for this cohort need to be re-run to fix `Subject.strain`.
-- **Exact session start times of day** — `frametimes.npy` only gives elapsed seconds from session
-  start, not wall-clock time; `session_start_time` is currently set to midnight UTC of the session
-  date.
-- **Recording timezone** — need to confirm whether sessions were recorded on Harvard local time
-  (Eastern) or another timezone, to correctly localize `session_start_time`.
-- **Full session data for CHD8, GRIN2B, NRXN1, Long-Evans WT** — currently only skin-contacts
-  `.h5` files are in the share for these cohorts; video/calibration/sDANNCE are pending upload.
-- **Per-rat weight** — not available in any source seen so far; only an approximate cohort-level
-  range (350–600 g) is known from the paper.
-
-## TODOs
-
-Internal code/repo work, not blocked on the lab:
-- **Ephys and fiber photometry interfaces** — placeholders only; no design work started, pending
-  the lab collecting and sharing this data.

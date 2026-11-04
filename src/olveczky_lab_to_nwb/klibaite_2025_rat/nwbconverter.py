@@ -20,7 +20,9 @@ class Klibaite2025NWBConverter(NWBConverter):
 
     Temporal alignment:
     - Video timestamps: loaded from per-camera frametimes.npy (row 1 = elapsed seconds)
-    - DANNCE and SkinContacts load their own timestamps from frametimes.npy directly
+    - DANNCE: Camera1 frametimes read at the frames the Label3D sync table gives for each sampleID; sessions
+      without a Label3D file have their pose times set in convert_session.py, taking each sampleID as the frame
+    - SkinContacts loads its own timestamps from Camera1 frametimes.npy directly
     """
 
     data_interface_classes = dict(

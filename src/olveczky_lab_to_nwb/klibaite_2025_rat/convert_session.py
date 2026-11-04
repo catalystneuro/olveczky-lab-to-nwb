@@ -11,11 +11,15 @@ Session directory naming convention:
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+import warnings
+from datetime import datetime
 from pathlib import Path
 from typing import Union
 
+import numpy as np
+import scipy.io
 import yaml
+from dateutil import tz
 from neuroconv.utils import dict_deep_update
 
 from olveczky_lab_to_nwb.klibaite_2025_rat.nwbconverter import Klibaite2025NWBConverter
@@ -29,7 +33,7 @@ def parse_session_folder_name(folder_name: str) -> dict:
     """Parse a session folder name into its components.
 
     Expected format: ``YYYY_MM_DD_M{rat1_id}_M{rat2_id}``
-    e.g. ``2022_09_22_M1_M2`` -> date 2022-09-22, rat1_id "M1", rat2_id "M2"
+    e.g. ``2022_09_22_M1_M2`` -> date 2022-09-22 (midnight US/Eastern), rat1_id "M1", rat2_id "M2"
     """
     pattern = r"^(\d{4})_(\d{2})_(\d{2})_(M\w+)_(M\w+)$"
     m = re.match(pattern, folder_name)
@@ -39,7 +43,8 @@ def parse_session_folder_name(folder_name: str) -> dict:
         )
     year, month, day, rat1_id, rat2_id = m.groups()
     return {
-        "session_date": datetime(int(year), int(month), int(day), tzinfo=timezone.utc),
+        # Sessions were recorded in US/Eastern time; the time of day was not recorded.
+        "session_date": datetime(int(year), int(month), int(day), tzinfo=tz.gettz("America/New_York")),
         "session_date_str": f"{year}{month}{day}",
         "rat1_id": rat1_id,
         "rat2_id": rat2_id,
@@ -79,6 +84,32 @@ def find_sdannce_mat(session_dir_path: Path, rat: str) -> Path:
         f"Could not find save_data_AVG0.mat or save_data_AVG.mat for '{rat}' in {session_dir_path}. "
         "Searched SDANNCE/ and SDANNCE_x2/ subdirectories."
     )
+
+
+def find_label3d_sync_file(session_dir_path: Path) -> Path | None:
+    """Find the session's Label3D ``*Label3D_dannce.mat`` file, whose ``sync`` table maps each sampleID to a
+    video frame. When a session has several, the newest (by timestamped name) is used; on the data share
+    they all hold the same table. Returns None when the session has none.
+    """
+    label3d_files = sorted(session_dir_path.glob("*Label3D_dannce.mat"))
+    return label3d_files[-1] if label3d_files else None
+
+
+def get_pose_times_without_sync_table(sdannce_mat: Path, frametimes_file_path: Path) -> np.ndarray:
+    """Time the sDANNCE predictions of a session that has no Label3D sync table.
+
+    Each sampleID is the Camera1 frame it was predicted on (confirmed 2026-11-04). Every Label3D sync table
+    on the data share records the same mapping (sampleID 0-89999 to frames 0-89999).
+    """
+    sample_ids = np.ravel(scipy.io.loadmat(sdannce_mat, variable_names=["sampleID"])["sampleID"])
+    frames = np.rint(sample_ids).astype("int64")
+    frametimes = np.load(frametimes_file_path)[1]
+    if not np.array_equal(frames, sample_ids) or frames.min() < 0 or frames.max() >= len(frametimes):
+        raise ValueError(
+            f"The sampleIDs in {sdannce_mat} ({sample_ids.min()}-{sample_ids.max()}) are not frame indices within "
+            f"the {len(frametimes)} frames of {frametimes_file_path}, so they cannot be timed without a sync table."
+        )
+    return frametimes[frames]
 
 
 def session_to_nwb(
@@ -164,6 +195,11 @@ def session_to_nwb(
         source_data["DANNCE"]["calibration_path"] = str(calibration_path)
     else:
         print(f"  [WARNING] Calibration directory not found, skipping camera calibration: {calibration_path}")
+    # DANNCEConverter times the pose by Camera1's frametimes at the frames the Label3D sync table gives for
+    # each sampleID. Most sessions have no Label3D file; their pose times are set after construction.
+    label3d_file = find_label3d_sync_file(session_dir_path)
+    if label3d_file is not None:
+        source_data["DANNCE"]["sync_path"] = str(label3d_file)
     conversion_options["DANNCE"] = dict(stub_test=stub_test)
 
     if contacts_file_path is not None:
@@ -178,7 +214,21 @@ def session_to_nwb(
             print(f"  [WARNING] Contacts file not found, skipping: {contacts_file_path}")
 
     # ── Instantiate converter ────────────────────────────────────────────────
-    converter = Klibaite2025NWBConverter(source_data=source_data, verbose=verbose)
+    if label3d_file is not None:
+        converter = Klibaite2025NWBConverter(source_data=source_data, verbose=verbose)
+    else:
+        # The converter warns that the pose has no times; they are set right below.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="No timing information is available for the DANNCE")
+            converter = Klibaite2025NWBConverter(source_data=source_data, verbose=verbose)
+        print(f"  [WARNING] No *Label3D_dannce.mat sync table in {session_dir_path}; timing the pose by sampleID.")
+        dannce_interface = converter.data_interface_objects["DANNCE"].data_interface_objects["DANNCE"]
+        dannce_interface.temporal_alignment[pose_key].set_times(
+            get_pose_times_without_sync_table(
+                sdannce_mat=sdannce_mat,
+                frametimes_file_path=session_dir_path / "videos" / "Camera1" / "frametimes.npy",
+            )
+        )
 
     # ── Build metadata (layered) ─────────────────────────────────────────────
     # Start from the converter's auto-generated metadata (required so schema sections
