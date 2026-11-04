@@ -29,6 +29,9 @@ dependencies = [
     "opencv-python-headless",
 ]
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 [project.urls]
 Repository = "https://github.com/catalystneuro/olveczky-lab-to-nwb"
 

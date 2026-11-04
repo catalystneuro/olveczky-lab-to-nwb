@@ -120,7 +120,7 @@ All 6 cohorts (SCN2A, ARID1B, CHD8, GRINB, NRXN1, LONGEVANS) discovered and stub
 
 - `frametimes.npy` row 1 (elapsed seconds from session start) used as timestamps for all streams
 - sDANNCE `sampleID` (0-based frame indices) used to index frametimes → per-prediction timestamps
-- `session_start_time` populated with UTC date only (exact time of day pending lab)
+- `session_start_time` populated with the session date at midnight US/Eastern (time of day not recorded)
 
 #### Ingest in Spyglass
 
