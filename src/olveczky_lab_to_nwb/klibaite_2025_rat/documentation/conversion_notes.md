@@ -274,7 +274,8 @@ sampleIDs are integers within the frametimes, sets the pose times to `frametimes
 warning. Confirmed 2026-11-04: in these sessions each `sampleID` is the Camera1 frame it was predicted on.
 
 Three LONGEVANS_M_SOC3 sessions (`2022_11_10_M0_M5`, `2022_11_10_M1_M2`, `2022_11_10_M3_M4`) have no
-Camera1 `frametimes.npy`, so their pose and video cannot be timed from it.
+sDANNCE predictions and no Camera1 `frametimes.npy` (`2022_11_10_M3_M4` has no Camera1 video either). They
+fail to convert, and `convert_all_sessions.py` records the error in its `exceptions/` folder.
 
 `session_start_time` is the session date parsed from the folder name, at midnight US/Eastern
 (`America/New_York`, so UTC-4 or UTC-5 depending on daylight saving time). Sessions were recorded in

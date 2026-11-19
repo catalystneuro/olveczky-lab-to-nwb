@@ -40,7 +40,7 @@ DEFAULT_COHORTS = [
     "GRINB",
     "NRXN1",
     "LONGEVANS",
-]  # LONGEVANS skipping for now need clarification
+]
 
 
 def get_session_to_nwb_kwargs_per_session(

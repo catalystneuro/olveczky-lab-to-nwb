@@ -119,7 +119,7 @@ All 6 cohorts (SCN2A, ARID1B, CHD8, GRINB, NRXN1, LONGEVANS) discovered and stub
 #### Conversion with Spyglass compatibility
 
 - `frametimes.npy` row 1 (elapsed seconds from session start) used as timestamps for all streams
-- sDANNCE `sampleID` (0-based frame indices) used to index frametimes → per-prediction timestamps
+- sDANNCE pose times: Camera1 frametimes read at the video frame the Label3D `sync` table gives for each `sampleID`; sessions without a Label3D file take each `sampleID` as the Camera1 frame
 - `session_start_time` populated with the session date at midnight US/Eastern (time of day not recorded)
 
 #### Ingest in Spyglass

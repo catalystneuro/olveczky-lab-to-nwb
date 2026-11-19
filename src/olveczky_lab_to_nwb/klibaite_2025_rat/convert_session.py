@@ -222,8 +222,7 @@ def session_to_nwb(
             warnings.filterwarnings("ignore", message="No timing information is available for the DANNCE")
             converter = Klibaite2025NWBConverter(source_data=source_data, verbose=verbose)
         print(f"  [WARNING] No *Label3D_dannce.mat sync table in {session_dir_path}; timing the pose by sampleID.")
-        dannce_interface = converter.data_interface_objects["DANNCE"].data_interface_objects["DANNCE"]
-        dannce_interface.temporal_alignment[pose_key].set_times(
+        converter.data_interface_objects["DANNCE"].temporal_alignment[pose_key].set_times(
             get_pose_times_without_sync_table(
                 sdannce_mat=sdannce_mat,
                 frametimes_file_path=session_dir_path / "videos" / "Camera1" / "frametimes.npy",
