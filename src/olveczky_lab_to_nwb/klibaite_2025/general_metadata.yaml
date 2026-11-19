@@ -1,6 +1,6 @@
-# Static metadata for Olveczky Lab social behavior NWB conversion.
-# Fields that vary per session (subject_id, session_start_time, session_id,
-# rat identity, genotype) are set programmatically in convert_session.py.
+# Metadata of the Klibaite 2025 conversion that is not in the data files. convert_session.py merges
+# it over the metadata the interfaces read from the files, then sets the per-session fields
+# (session_id, session_start_time, Subject) itself.
 
 NWBFile:
   experiment_description: >
@@ -36,35 +36,97 @@ NWBFile:
 
 Subject:
   species: Rattus norvegicus
-  # strain, sex, subject_id, date_of_birth, genotype, weight set programmatically from ugne_rat_log.xlsx
-  # and ugne_recording_info.xlsx via get_subject_metadata()
+  # The other Subject fields come from the rat log (utils/subject_metadata.py).
+
+# sDANNCE pose, keyed by the metadata key of the DANNCE interface (POSE_METADATA_KEY in
+# convert_session.py). The nodes are the 23 landmarks of the rat23 skeleton, in the order of the
+# sDANNCE prediction files; the edges are pairs of node indices (0-based), from rat23.mat of Label3D.
+Pose:
+  Skeletons:
+    PoseEstimationSDANNCE:
+      nodes: [Snout, EarLeft, EarRight, SpineFront, SpineMiddle, SpineLow, TailBase, ShoulderLeft, ElbowLeft,
+              WristLeft, HandLeft, ShoulderRight, ElbowRight, WristRight, HandRight, HipLeft, KneeLeft,
+              AnkleLeft, FootLeft, HipRight, KneeRight, AnkleRight, FootRight]
+      edges: [[0, 1], [0, 2], [0, 3], [1, 2], [3, 4], [3, 7], [3, 11], [4, 5], [5, 6], [5, 15], [5, 19],
+              [7, 8], [8, 9], [9, 10], [11, 12], [12, 13], [13, 14], [15, 16], [16, 17], [17, 18], [19, 20],
+              [20, 21], [21, 22]]
+  MultiCameraPoseEstimations:
+    PoseEstimationSDANNCE:
+      name: PoseEstimationSDANNCE
+      source_software: sDANNCE
+      scorer: sDANNCE
+      description: 3D keypoint coordinates estimated using sDANNCE (social DANNCE).
+
+# Behavioral task, written by TaskEpochInterface to processing/tasks in the layout Spyglass reads.
+# `hed` refers to a definition under HED below.
+Task:
+  task_name: social_encounter
+  task_description: >-
+    Two rats behave freely together in an arena for one recording session (one encounter round of the
+    pair). Both rats are tracked with 6-camera video and 3D pose estimation (sDANNCE).
+  task_environment: arena
+  hed: Def/Social-encounter
+
+# HED (Hierarchical Event Descriptors) schema version and lab definitions, written to
+# HedLabMetaData (ndx-hed). In the session, rat1 and rat2 are the two rats of the pair (rat1 is
+# the first rat of the session folder name, colored blue in the videos).
+#
+# body_parts maps the body parts of the skin contact mesh (vertex_body_map in
+# skin_contacts_symmetric.h5, without the "walker/" prefix and the _L/_R side) to HED tags; the
+# first matching pattern is used. The lumbar vertebrae are on the lower back and the caudal
+# vertebrae (vertebra_C<N>) on the tail. HED has no tail or jaw tag, so these two extend
+# Body-part and Face-part. SkinContactsInterface writes, for each contact type,
+# "Def/Skin-contact, (Label/rat1, (<side>, <tag>)), (Label/rat2, (<side>, <tag>))".
+#
+# After editing, validate a converted file with inspection.py, which runs ndx-hed's HedNWBValidator.
+HED:
+  hed_schema_version: "8.5.0"
+  definitions: >-
+    (Definition/Social-encounter, (Task, (Experiment-participant, Animal-agent, Awake, Label/rat1),
+    (Experiment-participant, Animal-agent, Awake, Label/rat2), Indoors, Real-world)),
+    (Definition/Skin-contact, (Agent-action, Touch))
+  body_parts:
+    finger: Finger
+    hand: Hand
+    lower_arm: Forearm
+    upper_arm: Upper-arm
+    scapula: Shoulder
+    toe: Toe
+    foot: Foot
+    lower_leg: Lower-leg
+    upper_leg: Upper-leg
+    pelvis: Pelvis
+    torso: Torso
+    skull: Head
+    jaw: Face-part/Jaw
+    vertebra_axis: Neck
+    vertebra_C*: Body-part/Tail
+    vertebra_*: Torso-back
 
 # External resources (HERD). NeuroConv writes every term stated here into the file under
 # /general/external_resources during run_conversion. Each map is keyed by the exact value it
 # annotates (Subject.species, Subject.strain, Skeleton node name, NWBFile.experimenter name,
-# NWBFile.institution). IDs checked against the EBI Ontology Lookup Service (UBERON, NCBITaxon) and
-# the SciCrunch resolver (RRID) on 2026-10-16, and against ROR and ORCID on 2026-11-03.
+# NWBFile.institution); terms for values a file does not have are skipped. Look up new IDs in the
+# EBI Ontology Lookup Service (https://www.ebi.ac.uk/ols4; UBERON, NCBITaxon), the SciCrunch
+# resolver (RRID), ORCID and ROR.
 ExternalResources:
   institution:
     Harvard University: { id: "ror:03vek6s52", uri: "https://ror.org/03vek6s52" }
-  # Only experimenters whose ORCID record lists an Olveczky lab paper. The other names have no
-  # verified iD yet and are left out.
+  # Experimenters with an ORCID iD that lists an Olveczky lab paper.
   experimenter:
     Klibaite, Ugne: { id: "orcid:0000-0001-9729-7258", uri: "https://orcid.org/0000-0001-9729-7258" }
     Aldarondo, Diego: { id: "orcid:0000-0001-8558-7557", uri: "https://orcid.org/0000-0001-8558-7557" }
   species:
     Rattus norvegicus: { id: "NCBITaxon:10116", uri: "http://purl.obolibrary.org/obo/NCBITaxon_10116" }
-  # One entry per cohort; keys must match STRAINS[cohort]["strain"] in utils/subject_metadata.py
-  # (convert_session.py checks that the subject's strain has its RRID here).
+  # One entry per cohort; keys must match the strains in COHORTS (utils/subject_metadata.py).
   strain:
     Long-Evans: { id: "RRID:RGD_2308852", uri: "https://scicrunch.org/resolver/RRID:RGD_2308852" }  # Crl:LE, Charles River
     LE-Scn2a-em1Mcwi: { id: "RRID:RGD_25394530", uri: "https://scicrunch.org/resolver/RRID:RGD_25394530" }
-    LE-Cntnap2-em1Mcwi: { id: "RRID:RGD_25330087", uri: "https://scicrunch.org/resolver/RRID:RGD_25330087" }
     LE-Chd8-em1Mcwi: { id: "RRID:RGD_25330088", uri: "https://scicrunch.org/resolver/RRID:RGD_25330088" }
     LE-Grin2b-em1Mcwi: { id: "RRID:RGD_14394515", uri: "https://scicrunch.org/resolver/RRID:RGD_14394515" }
     LE-Arid1b-em1Mcwi: { id: "RRID:RGD_14394518", uri: "https://scicrunch.org/resolver/RRID:RGD_14394518" }
-    LE-Fmr1-em2Mcwi: { id: "RRID:RGD_11553873", uri: "https://scicrunch.org/resolver/RRID:RGD_11553873" }
     LE-Nrxn1-em1Mcwi: { id: "RRID:RGD_25330089", uri: "https://scicrunch.org/resolver/RRID:RGD_25330089" }
+    LE-Fmr1-em2Mcwi: { id: "RRID:RGD_11553873", uri: "https://scicrunch.org/resolver/RRID:RGD_11553873" }  # FX, not converted yet
   # rat23 skeleton nodes. UBERON has no left/right terms, so both sides share one term (YAML
   # anchors), and the three spine points share the vertebral column term.
   anatomical_structures:
