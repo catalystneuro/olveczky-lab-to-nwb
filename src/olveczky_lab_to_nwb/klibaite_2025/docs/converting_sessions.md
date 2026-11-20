@@ -26,6 +26,9 @@ python src/olveczky_lab_to_nwb/klibaite_2025/convert_session.py
 A stub file holds the first 100 pose samples and the first 1000 skin contacts, and is written to
 `<output folder>/nwb_stub/`. The videos are linked in full. It is a quick way to check the metadata after a change.
 
+The script converts one rat of a social session and one lone session (one rat alone in the arena):
+`session_to_nwb` takes the session's `condition`, `"social"` or `"lone"`.
+
 ## 2. Convert all sessions
 
 In `convert_all_sessions.py`, set `data_dir_path` and `output_dir_path`, and run:
@@ -34,7 +37,8 @@ In `convert_all_sessions.py`, set `data_dir_path` and `output_dir_path`, and run
 python src/olveczky_lab_to_nwb/klibaite_2025/convert_all_sessions.py
 ```
 
-This converts both rats of every session folder of the cohorts in `COHORTS` (`utils/subject_metadata.py`); pass
+This converts both rats of every social session folder and every lone session folder of the cohorts in `COHORTS`
+(`utils/subject_metadata.py`); pass
 `cohorts=["SCN2A"]` to `dataset_to_nwb` to convert some cohorts only. With `overwrite=False` (the default in the
 script), rat-sessions whose NWB file exists are skipped, which converts only new sessions after recordings are added
 to the share; set `overwrite=True` to convert everything again, for example after changing the metadata.
@@ -51,8 +55,9 @@ Half of the contacts files are under 0.29 GB, and the largest are in NRXN1. On a
 `max_workers=2` (the script's setting), and `max_workers=1` for NRXN1.
 
 A rat-session that fails does not stop the others: its arguments and traceback are written to
-`<output folder>/exceptions/ERROR_<encounter folder>_<session folder>_rat<1 or 2>.txt`, and removed when the
-rat-session converts on a later run. The sessions that fail on the current data share, and why, are listed in
+`<output folder>/exceptions/ERROR_<encounter folder>_<session folder>_rat<1 or 2>.txt` (`rat1` for a lone session),
+and removed when the rat-session converts on a later run. The sessions that fail on the current data share, and why,
+are listed in
 [Excluded sessions](excluded_sessions.md).
 
 ## 3. Inspect
@@ -103,7 +108,7 @@ the DANDI website.
 ```text
 <output folder>/
 ├── sub-SCN2A-M1/
-│   ├── sub-SCN2A-M1_ses-day-1-social-M1-M2-20220922.nwb
+│   ├── sub-SCN2A-M1_ses-social-1-20220922-M1-M2.nwb
 │   └── ...
 ├── nwb_stub/                 stub files
 ├── exceptions/               one file per failed rat-session
@@ -123,15 +128,26 @@ from olveczky_lab_to_nwb.klibaite_2025.inspection import inspect_output_folder
 data_dir_path = Path("<data share>/ugne")
 output_dir_path = Path("<output folder>")
 
-# One rat of one session
+# One rat of one social session
 session_dir_path = data_dir_path / "SCN2A" / "SCN2A_SOC1" / "2022_09_22_M1_M2"
 session_to_nwb(
     session_dir_path=session_dir_path,
     output_dir_path=output_dir_path,
-    rat_idx=1,
+    condition="social",
     cohort="SCN2A",
     rat_log_path=data_dir_path / "ugne_rat_log.xlsx",
+    rat_idx=1,
     contacts_file_path=data_dir_path / "social_touch" / "SCN2A_SOC1" / "2022_09_22_M1_M2" / "skin_contacts_symmetric.h5",
+    stub_test=True,
+)
+
+# One lone session
+session_to_nwb(
+    session_dir_path=data_dir_path / "FX" / "FXmale_wk1" / "2021_12_04_M1",
+    output_dir_path=output_dir_path,
+    condition="lone",
+    cohort="FX",
+    rat_log_path=data_dir_path / "ugne_rat_log.xlsx",
     stub_test=True,
 )
 
@@ -145,7 +161,8 @@ summary = inspect_output_folder(output_dir_path)
 
 ## Tests
 
-`tests/` checks how session folders are read (session IDs, which prediction file is used). Run it with:
+`tests/` checks how session folders are read (`utils/session_folders.py`: session IDs, the FX rat order) and the
+FX genotypes. Run it with:
 
 ```bash
 pip install pytest

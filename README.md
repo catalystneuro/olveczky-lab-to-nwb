@@ -6,7 +6,7 @@ Conversion of the Olveczky Lab's behavior recordings to the
 
 The `klibaite_2025` conversion covers the social behavior dataset of
 [Klibaite et al. (2025), Cell](https://doi.org/10.1016/j.cell.2025.01.044): pairs of rats from autism model lines
-(SCN2A, ARID1B, CHD8, GRIN2B, NRXN1) and Long-Evans rats behave freely together in an arena, recorded by 6 cameras,
+(SCN2A, ARID1B, CHD8, GRIN2B, NRXN1, and Fmr1 for Fragile X) and Long-Evans rats behave freely together in an arena, recorded by 6 cameras,
 with the 3D pose of each rat estimated by sDANNCE. Each rat of a session becomes one NWB file, holding its 3D pose,
 the 6 camera videos (linked as external files) with the camera calibrations, the skin contacts between the two rats,
 the session's task and epoch annotated with HED, and the subject metadata. The files are shared in
@@ -73,14 +73,14 @@ The notebooks in [notebooks/](notebooks/) read the files from DANDI or from disk
 
 ```text
 src/olveczky_lab_to_nwb/klibaite_2025/
-├── convert_session.py        conversion of one rat of one session
+├── convert_session.py        conversion of one rat of one session (social or lone)
 ├── convert_all_sessions.py   conversion of all sessions
 ├── nwbconverter.py           NWBConverter of the dataset and time alignment
 ├── interfaces/               data interfaces (skin contacts, task and epoch)
-├── utils/                    cohorts and subject metadata from the rat log
+├── utils/                    session folders, cohorts and subject metadata from the rat log
 ├── inspection.py             NWB Inspector reports, HED validation and inspection summary
 ├── upload_to_DANDI.py        organizing and uploading to DANDI
-├── general_metadata.yaml     experiment, skeleton, task, HED and ontology terms
+├── general_metadata.yaml     experiment, conditions (social, lone), skeleton, HED and ontology terms
 └── docs/                     documentation of this conversion
 docs/                         documentation of the conversion pipeline in general
 notebooks/                    example notebooks

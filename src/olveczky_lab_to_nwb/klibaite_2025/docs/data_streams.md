@@ -76,7 +76,7 @@ was not recorded.
 ```python
 from pynwb import NWBHDF5IO
 
-with NWBHDF5IO("sub-SCN2A-M1_ses-day-1-social-M1-M2-20220922.nwb", "r") as io:
+with NWBHDF5IO("sub-SCN2A-M1_ses-social-1-20220922-M1-M2.nwb", "r") as io:
     nwbfile = io.read()
     pose = nwbfile.processing["behavior"]["PoseEstimationSDANNCE"]
     snout = pose.pose_estimation_series["PoseEstimationSeriesSnout"]

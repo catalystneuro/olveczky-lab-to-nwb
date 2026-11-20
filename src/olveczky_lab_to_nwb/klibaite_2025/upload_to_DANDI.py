@@ -136,9 +136,9 @@ def get_draft_asset_paths(*, dandiset_id: str, dandi_instance: str) -> list[str]
 def get_subject_and_session(asset_path: str) -> tuple[str, str]:
     """Get the subject and session of an asset path, in lower case.
 
-    For example "sub-SCN2A-M1/sub-SCN2A-M1_ses-day-1-social-M1-M2-20220922_image.nwb" and the external video
-    "sub-SCN2A-M1/sub-SCN2A-M1_ses-day-1-social-M1-M2-20220922_image/<uuid>_external_file_0.mp4" both give
-    ("scn2a-m1", "day-1-social-m1-m2-20220922").
+    For example "sub-SCN2A-M1/sub-SCN2A-M1_ses-social-1-20220922-M1-M2_image.nwb" and the external video
+    "sub-SCN2A-M1/sub-SCN2A-M1_ses-social-1-20220922-M1-M2_image/<uuid>_external_file_0.mp4" both give
+    ("scn2a-m1", "social-1-20220922-m1-m2").
     """
     subject = asset_path.split("/")[0].removeprefix("sub-")
     match = re.search(r"_ses-([^_/.]+)", asset_path)

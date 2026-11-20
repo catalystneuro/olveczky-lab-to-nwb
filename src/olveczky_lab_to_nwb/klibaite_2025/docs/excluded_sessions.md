@@ -6,22 +6,26 @@ folder of the share for the files the conversion needs, and by converting every 
 
 ## Summary
 
-The six converted cohorts have 468 social session folders. 400 of them convert, into 800 NWB files (one per rat); 68
-do not.
+The seven converted cohorts have 595 social session folders. 525 of them convert, into 1050 NWB files (one per rat);
+70 do not. 54 lone sessions convert too, into one NWB file each.
 
-| Cohort | Sessions | Converted | Not converted | Converted without skin contacts |
-| --- | --- | --- | --- | --- |
-| SCN2A | 45 | 45 | 0 | 0 |
-| ARID1B | 86 | 83 | 3 | 0 |
-| CHD8 | 84 | 84 | 0 | 0 |
-| GRINB | 45 | 45 | 0 | 0 |
-| NRXN1 | 84 | 84 | 0 | 0 |
-| LONGEVANS | 124 | 59 | 65 | 14 |
-| Total | 468 | 400 | 68 | 14 |
+| Cohort | Social sessions | Converted | Not converted | Converted without skin contacts | Lone sessions converted |
+| --- | --- | --- | --- | --- | --- |
+| SCN2A | 45 | 45 | 0 | 0 | 0 |
+| ARID1B | 86 | 84 | 2 | 0 | 0 |
+| CHD8 | 84 | 84 | 0 | 0 | 0 |
+| GRINB | 45 | 45 | 0 | 0 | 0 |
+| NRXN1 | 84 | 84 | 0 | 0 | 0 |
+| LONGEVANS | 124 | 59 | 65 | 14 | 30 |
+| FX | 127 | 124 | 3 | 124 | 24 |
+| Total | 595 | 525 | 70 | 138 | 54 |
 
-Not converted at all: the FX cohort (156 folders) and the Long-Evans solo recordings (37 folders).
+Not converted at all: `LONGEVANS_M_AMP` (6 lone sessions after amphetamine) and `FXfemale07` (5 folders), which have
+no pose.
 
-The 800 files pass `inspection.py` with no critical message and no HED error, and hold 28 ontology references each.
+The 800 files of the first six cohorts' social sessions pass `inspection.py` with no critical message and no HED error,
+and hold 28 ontology references each. So do the stub files of `FX/FXmale_brothers1/2021_12_08_M1_M2`,
+`FX/FXmale_brothers2/2021_12_09_M2_M1`, `FX/FXmale_wk1/2021_12_04_M1` and `LONGEVANS/LONGEVANS_M/2022_10_17_M0`.
 
 ## Sessions without pose (66 sessions)
 
@@ -46,29 +50,40 @@ have no `SDANNCE*` folder at all, only videos and calibration:
 To convert them: add the sDANNCE predictions to the share and run `convert_all_sessions.py` again (with
 `overwrite=False`, only the new sessions are converted).
 
-## Sessions with file problems (2 sessions)
+## Session without calibration (1 session)
 
-| Session | Problem | Fix |
-| --- | --- | --- |
-| `ARID1B_SOC1/2022_10_21_M2_M6` | `videos/Camera1/` holds `._0.mp4`, a 4 KB macOS metadata file. It is read as a second video and cannot be opened. | Delete `._0.mp4`. |
-| `ARID1B_SOC1/2022_10_21_M7_M8_EXTRA` | No `calibration/` folder, and the same `._0.mp4` file in `videos/Camera1/`. | Add the calibration (`hires_cam<N>_params.mat`) and delete `._0.mp4`. |
+`ARID1B_SOC1/2022_10_21_M7_M8_EXTRA` has no `calibration/` folder. The camera parameters of its Label3D files
+(`sampleCAL_BG_dannce.mat`, `20221109_124650_COM_Label3D_dannce.mat`) are the same, for all 6 cameras, as the
+`calibration/` files of `ARID1B_SOC1/2022_10_21_M2_M6`, recorded the same day. Copying that folder into the session
+would let it convert.
 
-## Sessions converted without skin contacts (14 sessions)
+## FX sessions not in the rat log (3 sessions)
 
-`social_touch/` has no folder for `LONGEVANS_M_SOC9`, so its 14 sessions are converted with pose and video only. All
-other converted sessions have skin contacts.
+The FX prediction file holds both rats; index 0 is the rat dyed blue, and the rat log says which rat is blue (see
+[Data organization](data_organization.md#sdannce-prediction-files)). These sessions are not in the log, so
+`get_fx_rat_order` cannot tell which rat is which:
+
+- `FXmale_all1/2021_12_16_M7_M4_fresh` (it also has no prediction file);
+- `FXmale_all2/2022_01_21_M5_M6`;
+- `FXmale_all2/2022_01_28_M2_M1`; the log lists `2022_01_25_M2_M1` (blue M2) instead, which is not on the share.
+
+In 12 converted FX sessions the log's blue rat is the second rat of the folder name (all of `FXmale_brothers2`, and
+`FXmale_friends1` `2021_12_09_M4_M1`, `2021_12_09_M6_M7`, `2021_12_09_M8_M5`, `2021_12_10_M1_M3`, `2021_12_10_M1_M4`,
+`2021_12_10_M7_M5`, `2021_12_11_M2_M4`, `2021_12_11_M7_M6`); their rat1 is the blue rat of the log. In
+`FXmale_friends1/2021_12_10_M8_M6` the log gives only the red rat, M6, so M8 is blue.
+
+## Sessions converted without skin contacts (138 sessions)
+
+`social_touch/` has no folder for `LONGEVANS_M_SOC9` or the FX cohort, so these 14 and 124 social sessions are
+converted with pose and video only. All other converted social sessions have skin contacts. Lone sessions have none.
 
 ## Folders not converted
 
 | Folder | Content | Why |
 | --- | --- | --- |
-| `FX/` (156 folders) | Fragile X cohort: pairs in `FXmale_all1`, `FXmale_all2`, `FXmale_brothers1`, `FXmale_brothers2`, `FXmale_friends1` (127 sessions), solo recordings in `FXmale_wk1` (24), and `FXfemale07` (5, videos only) | The pose of both rats is in one file, `SDANNCE/predict_results/save_data_AVG0.mat` with `pred` of shape `(n_frames, 2, 3, 23)`, and nothing on the share says which animal index is which rat. The rat log gives a blue and a red rat for each session, which is not always the first rat of the folder name (for example `2021_12_09_M2_M1`: blue M1, red M2). The encounter folders are not named `SOC<N>`, and there are no skin contacts. |
-| `LONGEVANS/LONGEVANS_M/` (31) and `LONGEVANS_M_AMP/` (6) | Solo recordings of one rat (`YYYY_MM_DD_M<a>`); `_AMP` after amphetamine | The conversion is built for pairs of rats. |
-| `LONGEVANS_M_SOC2/TEST`, `LONGEVANS_M_SOC8/{COM,scripts,test}`, `LONGEVANS_M_SOC9/{batch1,batch2}` | Test recordings, center of mass runs and job scripts | Not sessions. |
-
-Converting FX needs, from the lab, which animal index of `pred` is which rat (for example, whether index 0 is always
-the blue rat). With that, FX can be added like the other cohorts, using `animal_index` of `DANNCEConverter` and a
-`FX` entry in `COHORTS` (sheet `FRAGILEX`, strain `LE-Fmr1-em2Mcwi`, already in `general_metadata.yaml`).
+| `LONGEVANS/LONGEVANS_M_AMP/` (6) | Lone sessions after amphetamine | No pose. |
+| `FX/FXfemale07/` (5) | Female FX rats (`YYYY_MM_DD_V<N>`), videos only | No pose and no calibration. |
+| `LONGEVANS_M_SOC2/TEST`, `LONGEVANS_M_SOC8/{COM,scripts,test}`, `LONGEVANS_M_SOC9/{batch1,batch2}`, `LONGEVANS_M/test` | Test recordings, center of mass runs and job scripts | Not sessions. |
 
 ## Data share details the conversion handles
 
@@ -81,4 +96,9 @@ These are not exclusions, but explain choices in the code:
 - `LONGEVANS_M_SOC8/2022_12_12_M0_M1` keeps its prediction in `SDANNCE_x3/`.
 - `CHD8_SOC2/2022_12_04_M5_M8` and `2022_12_04_M7_M2` also have a `save_data_AVG0_old.mat` with 85000 frames; the
   `save_data_AVG0.mat` read has the full 90000.
-- Folder suffixes (`_EXTRA`, `_take2`) are kept in the session ID; the rat is the ID before the suffix (`M8`, `M5`).
+- Folder suffixes (`_EXTRA`, `_take2`, `_fresh`) are not in the session ID: the take number tells apart two
+  recordings of a pair on one day. The rat is the ID before the suffix (`M8`, `M5`).
+- The Long-Evans lone sessions have up to three predictions: `SDANNCE_x2/bsl0.5_FM/save_data_AVG0.mat`, the model of
+  the social sessions, is read; `SDANNCE_5camfix/`, `fix-5cam/` (a few thousand frames) and `SDANNCE/` (21 frames in
+  `2022_10_17_M1`) are not. The FX lone sessions also have a single-animal `DANNCE/predictLS_xx2/` prediction of 5000
+  frames, which is not read.

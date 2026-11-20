@@ -5,11 +5,13 @@ The metadata of each NWB file comes from three places:
 | Source | Content |
 | --- | --- |
 | the data files | cameras and their calibration, video frame times, pose, skin contacts (read by the interfaces) |
-| `general_metadata.yaml` | experiment and session description, institution, lab, experimenters, publication, keywords; the skeleton (`Pose`); the task (`Task`); the HED schema, definitions and body part tags (`HED`); ontology terms (`ExternalResources`) |
+| `general_metadata.yaml` | experiment description, institution, lab, experimenters, publication, keywords; the session description and the task of each condition (`Conditions`); the skeleton (`Pose`); the HED schema, definitions and body part tags (`HED`); ontology terms (`ExternalResources`) |
 | `ugne_rat_log.xlsx` and `utils/subject_metadata.py` | the subject: ID, sex, strain, genotype, date of birth, markings, cage, mother, supplier |
 
-`session_to_nwb` merges `general_metadata.yaml` over the metadata the interfaces read, then sets the session ID,
-start time and subject. Most changes need only the YAML file: edit it, convert one session as a stub (see
+`Conditions` has one block per condition, `social` and `lone`, laid out like the rest of the file (`NWBFile:
+session_description` and `Task`). `session_to_nwb` takes the block of the session's condition out of `Conditions`,
+merges it over the rest of `general_metadata.yaml`, merges the result over the metadata the interfaces read, then sets
+the session ID, start time and subject. Most changes need only the YAML file: edit it, convert one session as a stub (see
 [Converting sessions](converting_sessions.md)) and check the file.
 
 ## Subjects
@@ -45,12 +47,13 @@ tags from a controlled vocabulary, so that they can be searched and compared acr
 `general_metadata.yaml` holds:
 
 - `hed_schema_version`: the HED schema, 8.5.0;
-- `definitions`: the lab's definitions. `Social-encounter` describes the task: two awake animals, rat1 and rat2, both
-  participants, indoors. `Skin-contact` describes a contact: an agent action of touch;
+- `definitions`: the lab's definitions. `Social-encounter` describes the social task: two awake animals, rat1 and rat2,
+  both participants, indoors. `Lone-session` describes the lone task: one awake animal, indoors. `Skin-contact`
+  describes a contact: an agent action of touch;
 - `body_parts`: the HED tag of each body part of the skin contact mesh. Keys are patterns, matched in order, so
   `vertebra_C*` (caudal vertebrae, the tail) comes before `vertebra_*` (lumbar vertebrae, the lower back).
 
-The task row carries `Def/Social-encounter` (`Task: hed`). Each contact type carries the definition and the body part
+The task row carries `Def/Social-encounter` or `Def/Lone-session` (`Task: hed` of the condition). Each contact type carries the definition and the body part
 of each rat, for example for `right foot x left toe`:
 
 ```text

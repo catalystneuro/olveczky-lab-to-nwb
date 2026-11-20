@@ -1,7 +1,9 @@
-"""Convert every session of the Klibaite 2025 dataset to NWB, two files per session (one per rat).
+"""Convert every session of the Klibaite 2025 dataset to NWB: two files per social session (one per rat), one per
+lone session.
 
-The data share folder (ugne/) holds one folder per cohort, with one folder per encounter round
-(<cohort>_SOC<N>, or LONGEVANS_M_SOC<N>) and one folder per session; the skin contacts are in
+The data share folder (ugne/) holds one folder per cohort, with one folder per encounter round (<cohort>_SOC<N>, or
+LONGEVANS_M_SOC<N>; pairing groups FXmale_<group> for FX) and one folder per social session, and the lone sessions in
+FX/FXmale_wk1/ and LONGEVANS/LONGEVANS_M/. The skin contacts are in
 social_touch/<encounter folder>/<session folder>/skin_contacts_symmetric.h5. See docs/data_organization.md.
 """
 
@@ -12,15 +14,16 @@ from pprint import pformat
 
 from tqdm import tqdm
 
-from olveczky_lab_to_nwb.klibaite_2025.convert_session import parse_session_folder, session_to_nwb
+from olveczky_lab_to_nwb.klibaite_2025.convert_session import session_to_nwb
+from olveczky_lab_to_nwb.klibaite_2025.utils.session_folders import CONDITIONS, parse_session_folder
 from olveczky_lab_to_nwb.klibaite_2025.utils.subject_metadata import COHORTS
 
 
 def get_session_to_nwb_kwargs_per_session(*, data_dir_path: str | Path, cohorts: list[str] | None = None) -> list[dict]:
-    """List the arguments of session_to_nwb for each rat of each session.
+    """List the arguments of session_to_nwb for each rat of each social and lone session.
 
-    The session folders are the folders of <cohort>/*SOC<N>/ named YYYY_MM_DD_M<a>_M<b>[_<suffix>]; other folders
-    (solo sessions, test runs, scripts) are left out.
+    The session folders are the folders of <cohort>/*/ that parse_session_folder reads as a social or a lone session;
+    other folders (test runs, scripts, sessions without pose) are left out.
 
     Parameters
     ----------
@@ -30,30 +33,36 @@ def get_session_to_nwb_kwargs_per_session(*, data_dir_path: str | Path, cohorts:
         Cohorts to convert. Defaults to all cohorts of COHORTS.
     """
     data_dir_path = Path(data_dir_path)
+    rat_log_path = data_dir_path / "ugne_rat_log.xlsx"
     kwargs_per_session = []
     for cohort in cohorts or COHORTS:
-        for session_dir_path in sorted((data_dir_path / cohort).glob("*SOC*/*")):
-            try:
-                parse_session_folder(session_dir_path)
-            except ValueError:
-                continue
-            contacts_file_path = (
-                data_dir_path
-                / "social_touch"
-                / session_dir_path.parent.name
-                / session_dir_path.name
-                / "skin_contacts_symmetric.h5"
-            )
-            for rat_idx in (1, 2):
-                kwargs_per_session.append(
-                    dict(
-                        session_dir_path=session_dir_path,
-                        rat_idx=rat_idx,
-                        cohort=cohort,
-                        rat_log_path=data_dir_path / "ugne_rat_log.xlsx",
-                        contacts_file_path=contacts_file_path if contacts_file_path.exists() else None,
-                    )
+        for session_dir_path in sorted((data_dir_path / cohort).glob("*/*")):
+            for condition in CONDITIONS:
+                try:
+                    parse_session_folder(session_dir_path, condition=condition)
+                except ValueError:
+                    continue
+                session_kwargs = dict(
+                    session_dir_path=session_dir_path, condition=condition, cohort=cohort, rat_log_path=rat_log_path
                 )
+                if condition == "lone":
+                    kwargs_per_session.append(dict(session_kwargs, rat_idx=1))
+                    continue
+                contacts_file_path = (
+                    data_dir_path
+                    / "social_touch"
+                    / session_dir_path.parent.name
+                    / session_dir_path.name
+                    / "skin_contacts_symmetric.h5"
+                )
+                for rat_idx in (1, 2):
+                    kwargs_per_session.append(
+                        dict(
+                            session_kwargs,
+                            rat_idx=rat_idx,
+                            contacts_file_path=contacts_file_path if contacts_file_path.exists() else None,
+                        )
+                    )
     return kwargs_per_session
 
 
@@ -76,7 +85,7 @@ def dataset_to_nwb(
     overwrite: bool = False,
     verbose: bool = False,
 ) -> None:
-    """Convert every session of the data share.
+    """Convert every social and lone session of the data share.
 
     A rat-session that fails does not stop the others: its arguments and traceback are written to
     <output_dir_path>/exceptions/ERROR_<encounter folder>_<session folder>_rat<1 or 2>.txt.
