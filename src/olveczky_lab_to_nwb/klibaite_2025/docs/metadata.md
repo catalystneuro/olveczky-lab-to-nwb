@@ -23,7 +23,8 @@ file.
 
 1. Put the cohort's folders on the share as described in [Data organization](data_organization.md), and its rats in
    a sheet of `ugne_rat_log.xlsx`.
-2. Add the cohort to `COHORTS` in `utils/subject_metadata.py`: its sheet name, strain designation and supplier.
+2. Add the cohort to `COHORTS` in `utils/subject_metadata.py`: its sheet name, strain designation, supplier and, for
+   a knockout line, the targeted gene.
 3. Add the strain's RRID under `ExternalResources: strain` in `general_metadata.yaml`, keyed by the same strain
    designation. Look it up on [SciCrunch](https://scicrunch.org/) or the
    [Rat Genome Database](https://rgd.mcw.edu).

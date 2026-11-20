@@ -65,7 +65,8 @@ The knockout lines come from the Medical College of Wisconsin. The cohorts are l
 ## Rat log (ugne_rat_log.xlsx)
 
 Each cohort's sheet has a banner row, then a table of rats (one row per rat), a blank row, and a table of recordings.
-The conversion reads the table of rats: `Rat ID`, `DOB`, `Genotype`, `Markings`, `Cage` and `Mother`. `Cage` and
+The conversion reads the table of rats: `Rat ID`, `DOB`, `Genotype` (`WT` or `Het`, in ARID1B `KO wt` or `KO Het`;
+see [Metadata](metadata.md#subjects) for how it is written), `Markings`, `Cage` and `Mother`. `Cage` and
 `Mother` are merged cells shared by the rats of a cage, and are filled down. Some sheets lack columns: CHD8 and NRXN1
 have no `Genotype`, LongEvans no dates of birth; for the Long-Evans rats the files hold the age range of the paper's
 methods, 9 to 14 weeks (`P9W/P14W`). The `Age` columns of the sheets compute the age on the day the sheet is opened
