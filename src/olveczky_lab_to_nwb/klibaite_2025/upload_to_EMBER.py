@@ -1,4 +1,7 @@
-"""Upload the converted NWB files to the draft of Dandiset 001936 on DANDI.
+"""Upload the converted NWB files to the draft of dandiset 000637 on the EMBER archive.
+
+The dataset is behavioral only, so it goes to EMBER (https://dandi.emberarchive.org), which runs the DANDI archive
+software: the DANDI client organizes, validates and uploads the files, with EMBER as its instance.
 
 Uploading takes two steps, so that the organized files can be checked before anything is sent:
 
@@ -12,8 +15,9 @@ Uploading takes two steps, so that the organized files can be checked before any
 Before uploading, report_draft_assets lists the draft assets that the upload replaces, those it leaves next to a
 new file of the same session (superseded) and those it does not touch (not reconverted).
 
-Every function takes the DANDI instance: "dandi" for the archive, "dandi-sandbox" for the sandbox. Reading an
-embargoed dandiset and uploading need a DANDI API key of that instance in the DANDI_API_KEY environment variable.
+Every function takes the instance: "ember-dandi" for the EMBER archive, "ember-dandi-sandbox" for its sandbox. EMBER
+needs an API key, from the account page of that instance, to read a draft and to upload: in the EMBER_DANDI_API_KEY
+environment variable for the archive, EMBER_DANDI_SANDBOX_API_KEY for the sandbox.
 """
 
 import re
@@ -21,7 +25,7 @@ from pathlib import Path
 
 import pandas as pd
 
-DANDI_INSTANCES = ("dandi", "dandi-sandbox")
+DANDI_INSTANCES = ("ember-dandi", "ember-dandi-sandbox")
 
 
 def check_dandi_instance(dandi_instance: str) -> None:
@@ -52,9 +56,9 @@ def organize_nwbfiles(
     dandiset_folder_path : str | Path
         Folder in which the dandiset folder is created.
     dandiset_id : str
-        The dandiset, e.g. "001936".
+        The dandiset, e.g. "000637".
     dandi_instance : str
-        "dandi" or "dandi-sandbox".
+        "ember-dandi" or "ember-dandi-sandbox".
 
     Returns
     -------
@@ -162,9 +166,9 @@ def report_draft_assets(*, dandiset_path: str | Path, dandiset_id: str, dandi_in
     dandiset_path : str | Path
         The dandiset folder from organize_nwbfiles.
     dandiset_id : str
-        The dandiset, e.g. "001936".
+        The dandiset, e.g. "000637".
     dandi_instance : str
-        "dandi" or "dandi-sandbox".
+        "ember-dandi" or "ember-dandi-sandbox".
 
     Returns
     -------
@@ -211,7 +215,7 @@ def upload_organized_files(*, dandiset_path: str | Path, dandi_instance: str) ->
     dandiset_path : str | Path
         The dandiset folder from organize_nwbfiles.
     dandi_instance : str
-        "dandi" or "dandi-sandbox", as for organize_nwbfiles.
+        "ember-dandi" or "ember-dandi-sandbox", as for organize_nwbfiles.
 
     Raises
     ------
@@ -230,8 +234,8 @@ def upload_organized_files(*, dandiset_path: str | Path, dandi_instance: str) ->
 if __name__ == "__main__":
     nwb_folder_path = Path("/path/to/nwbfiles")  # output folder of convert_all_sessions.py
     dandiset_folder_path = Path("/path/to/dandiset")  # the organized copy is written here
-    dandiset_id = "001936"
-    dandi_instance = "dandi"  # "dandi" for the archive, "dandi-sandbox" for the sandbox
+    dandiset_id = "000637"
+    dandi_instance = "ember-dandi"  # "ember-dandi" for the EMBER archive, "ember-dandi-sandbox" for its sandbox
     # Set to True after checking the organized folder and the draft asset report printed below.
     upload = False
 

@@ -9,8 +9,9 @@ The `klibaite_2025` conversion covers the social behavior dataset of
 (SCN2A, ARID1B, CHD8, GRIN2B, NRXN1, and Fmr1 for Fragile X) and Long-Evans rats behave freely together in an arena, recorded by 6 cameras,
 with the 3D pose of each rat estimated by sDANNCE. Each rat of a session becomes one NWB file, holding its 3D pose,
 the 6 camera videos (linked as external files) with the camera calibrations, the skin contacts between the two rats,
-the session's task and epoch annotated with HED, and the subject metadata. The files are shared in
-[DANDI:001936](https://dandiarchive.org/dandiset/001936).
+the session's task and epoch annotated with HED, and the subject metadata. FX and Long-Evans rats were also recorded
+alone in the arena (lone sessions), which become one file each. The files are shared on the EMBER archive, in
+[dandiset 000637](https://dandi.emberarchive.org/dandiset/000637).
 
 ## Installation
 
@@ -49,7 +50,7 @@ Inspector and validates their HED annotations. See
 The conversion pipeline in general, in [docs/](docs/):
 
 - [The conversion pipeline](docs/conversion_pipeline.md): NWB, NeuroConv, the parts of a conversion and the steps from
-  recordings to DANDI.
+  recordings to a public archive.
 - [Building a new conversion pipeline](docs/new_conversion_pipeline.md): converting another experiment to NWB.
 
 The Klibaite 2025 conversion, in [klibaite_2025/docs/](src/olveczky_lab_to_nwb/klibaite_2025/docs/):
@@ -65,9 +66,9 @@ The Klibaite 2025 conversion, in [klibaite_2025/docs/](src/olveczky_lab_to_nwb/k
 - [Excluded sessions](src/olveczky_lab_to_nwb/klibaite_2025/docs/excluded_sessions.md): the sessions of the data share
   that are not converted, and why.
 
-The notebooks in [notebooks/](notebooks/) read the files from DANDI or from disk:
-[dandi_001936_tutorial.ipynb](notebooks/dandi_001936_tutorial.ipynb) shows each data stream of one rat, and
-[two_subject_tutorial.ipynb](notebooks/two_subject_tutorial.ipynb) the two rats of a session together.
+The notebooks in [notebooks/](notebooks/) stream the files from the EMBER archive or read them from disk:
+[000637_demo.ipynb](notebooks/000637_demo.ipynb) shows each data stream of one rat, and
+[000637_two_subject_demo.ipynb](notebooks/000637_two_subject_demo.ipynb) the two rats of a session together.
 
 ## Repository layout
 
@@ -79,12 +80,11 @@ src/olveczky_lab_to_nwb/klibaite_2025/
 ├── interfaces/               data interfaces (skin contacts, task and epoch)
 ├── utils/                    session folders, cohorts and subject metadata from the rat log
 ├── inspection.py             NWB Inspector reports, HED validation and inspection summary
-├── upload_to_DANDI.py        organizing and uploading to DANDI
+├── upload_to_EMBER.py        organizing and uploading to the EMBER archive
 ├── general_metadata.yaml     experiment, conditions (social, lone), skeleton, HED and ontology terms
 └── docs/                     documentation of this conversion
 docs/                         documentation of the conversion pipeline in general
 notebooks/                    example notebooks
-tests/                        tests of the session folder parsing
 ```
 
 ## Citation

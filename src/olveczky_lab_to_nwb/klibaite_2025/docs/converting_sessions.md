@@ -75,33 +75,35 @@ out), validates the HED annotations, and writes:
 - `inspection_summary.csv`: one row per file, with its subject and session, `herd_references` (the number of
   ontology references in the file), `hed_errors` and the number of inspector messages per importance level.
 
-A file with `CRITICAL` messages cannot be uploaded to DANDI. `hed_errors` should be 0. Each file is expected to have
+A file with `CRITICAL` messages cannot be uploaded. `hed_errors` should be 0. Each file is expected to have
 16 `BEST_PRACTICE_SUGGESTION`s and nothing else: missing descriptions of the camera devices and model, and the
 `tasks` processing module and its single-row tables, which are in the layout Spyglass reads. A file converted to
 another drive than the data share also has one `BEST_PRACTICE_VIOLATION` per camera, as its video paths are absolute.
 
-## 4. Upload to DANDI
+## 4. Upload to EMBER
 
-The files go to [DANDI:001936](https://dandiarchive.org/dandiset/001936). Uploading needs the
-[DANDI client](https://dandi.readthedocs.io/) (installed with the package) and a DANDI API key, from your account page
-on DANDI, in the `DANDI_API_KEY` environment variable.
+The dataset is behavioral only, so the files go to the [EMBER archive](https://dandi.emberarchive.org), dandiset
+[000637](https://dandi.emberarchive.org/dandiset/000637). EMBER runs the DANDI archive software, so the upload uses the
+[DANDI client](https://dandi.readthedocs.io/) (installed with the package), with EMBER as its instance
+(`ember-dandi`). It needs an EMBER API key, from your account page on EMBER, in the `EMBER_DANDI_API_KEY` environment
+variable; EMBER asks for it to read the draft too.
 
-In `upload_to_DANDI.py`, set `nwb_folder_path` (the output folder) and `dandiset_folder_path` (an empty folder for
+In `upload_to_EMBER.py`, set `nwb_folder_path` (the output folder) and `dandiset_folder_path` (an empty folder for
 the organized copy, on a drive with room for the files and the videos), and run it once with `upload = False`:
 
 ```bash
-python src/olveczky_lab_to_nwb/klibaite_2025/upload_to_DANDI.py
+python src/olveczky_lab_to_nwb/klibaite_2025/upload_to_EMBER.py
 ```
 
-This copies the NWB files into `<dandiset folder>/001936/`, named as DANDI expects, with each file's videos in a
+This copies the NWB files into `<dandiset folder>/000637/`, named as the archive expects, with each file's videos in a
 folder next to it, and prints how the upload would change the draft: files replaced, new, superseded (an older file
 of the same subject and session at another path) or not reconverted. When the report is as expected, set
 `upload = True` and run it again: it validates the files and uploads them. The two files of a session each get a copy
-of the videos; DANDI stores identical files once.
+of the videos; the archive stores identical files once.
 
-Set `dandi_instance = "dandi-sandbox"` (and a sandbox dandiset ID) to try an upload on the
-[DANDI sandbox](https://sandbox.dandiarchive.org) first. Superseded files stay on the draft until they are deleted on
-the DANDI website.
+Set `dandi_instance = "ember-dandi-sandbox"` (with a dandiset ID of the
+[EMBER sandbox](https://dandi.sandbox.emberarchive.org) and its key in `EMBER_DANDI_SANDBOX_API_KEY`) to try an upload
+there first. Superseded files stay on the draft until they are deleted on the EMBER website.
 
 ## Output folder
 
@@ -158,13 +160,3 @@ summary = inspect_output_folder(output_dir_path)
 
 `get_session_to_nwb_kwargs_per_session` in `convert_all_sessions.py` returns the arguments of every rat-session, as
 `dataset_to_nwb` uses them.
-
-## Tests
-
-`tests/` checks how session folders are read (`utils/session_folders.py`: session IDs, the FX rat order) and the
-FX genotypes. Run it with:
-
-```bash
-pip install pytest
-pytest tests
-```
