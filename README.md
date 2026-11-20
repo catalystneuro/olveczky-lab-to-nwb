@@ -1,115 +1,93 @@
 # olveczky-lab-to-nwb
 
-NWB conversion scripts, functions, and classes for the [Olveczky Lab](https://olveczkylab.oeb.harvard.edu/) (Harvard University), which studies the neural basis of learned and natural behaviors.
+Conversion of the Olveczky Lab's behavior recordings to the
+[Neurodata Without Borders](https://nwb-overview.readthedocs.io/) (NWB) format, built on
+[NeuroConv](https://neuroconv.readthedocs.io/).
 
-## Conversions
-
-### Klibaite 2025 — Rat social behavior
-
-Converts multi-genotype social behavior recordings of freely interacting rat pairs, as described in
-[Klibaite et al. (2025), *Cell*](https://www.cell.com/cell/fulltext/S0092-8674(25)00154-0)
-(DOI: [10.1016/j.cell.2025.01.044](https://doi.org/10.1016/j.cell.2025.01.044)).
-
-Each session pairs two rats in an arena recorded from 6 synchronized cameras. Every session is
-converted to **two NWB files**, one per rat, both referencing the same external video files.
-
-Data streams converted:
-
-- **3D pose estimation** — per-rat sDANNCE keypoints (23-joint `rat23` skeleton), via NeuroConv's
-  `DANNCEConverter`, which also links each camera's video file and calibrated `Device`.
-- **Multi-camera video** — 6 synchronized camera streams, stored as external-file `ImageSeries`.
-- **Skin contacts** *(optional, when available)* — pairwise inter-rat body-contact events derived
-  from the sDANNCE body mesh, written as an `EventsTable` in `nwbfile.events`.
-
-All streams are temporally aligned using per-camera `frametimes.npy` files (elapsed seconds from
-session start).
-
-Code for this conversion is located at
-[`src/olveczky_lab_to_nwb/klibaite_2025_rat`](src/olveczky_lab_to_nwb/klibaite_2025_rat), including:
-
-- [`nwbconverter.py`](src/olveczky_lab_to_nwb/klibaite_2025_rat/nwbconverter.py) — the
-  `Klibaite2025NWBConverter` class, combining the `DANNCE` and `SkinContacts` interfaces and
-  handling temporal alignment.
-- [`interfaces/skin_contacts_interface.py`](src/olveczky_lab_to_nwb/klibaite_2025_rat/interfaces/skin_contacts_interface.py) —
-  custom `SkinContactsInterface` for the lab's `skin_contacts_symmetric.h5` files.
-- [`convert_session.py`](src/olveczky_lab_to_nwb/klibaite_2025_rat/convert_session.py) — converts
-  one rat from one session directory to one NWB file.
-- [`convert_all_sessions.py`](src/olveczky_lab_to_nwb/klibaite_2025_rat/convert_all_sessions.py) —
-  discovers all sessions under a data root and converts both rats of each session (two NWB files
-  per session), resolving per-rat subject metadata along the way.
-- [`general_metadata.yaml`](src/olveczky_lab_to_nwb/klibaite_2025_rat/general_metadata.yaml) —
-  static NWBFile/Subject/device metadata.
-- [`utils/`](src/olveczky_lab_to_nwb/klibaite_2025_rat/utils) — skeleton/landmark constants and
-  per-rat subject metadata lookup (from the lab's rat log spreadsheet).
-- [`documentation/conversion_notes.md`](src/olveczky_lab_to_nwb/klibaite_2025_rat/documentation/conversion_notes.md) —
-  detailed notes on data streams, directory structure, and conversion decisions.
+The `klibaite_2025` conversion covers the social behavior dataset of
+[Klibaite et al. (2025), Cell](https://doi.org/10.1016/j.cell.2025.01.044): pairs of rats from autism model lines
+(SCN2A, ARID1B, CHD8, GRIN2B, NRXN1, and Fmr1 for Fragile X) and Long-Evans rats behave freely together in an arena, recorded by 6 cameras,
+with the 3D pose of each rat estimated by sDANNCE. Each rat of a session becomes one NWB file, holding its 3D pose,
+the 6 camera videos (linked as external files) with the camera calibrations, the skin contacts between the two rats,
+the session's task and epoch annotated with HED, and the subject metadata. FX and Long-Evans rats were also recorded
+alone in the arena (lone sessions), which become one file each. The files are shared on the EMBER archive, in
+[dandiset 000637](https://dandi.emberarchive.org/dandiset/000637).
 
 ## Installation
 
-Clone the repository and install in editable mode with the conversion-specific extra:
+Install [git](https://github.com/git-guides/install-git) and [conda](https://docs.conda.io/en/latest/miniconda.html),
+then, from a terminal:
 
 ```bash
-conda env create -f make_env.yml
+git clone https://github.com/catalystneuro/olveczky-lab-to-nwb
+cd olveczky-lab-to-nwb
+conda env create --file make_env.yml
 conda activate olveczky-lab-to-nwb-env
 ```
 
-Or with pip:
+This creates a conda environment with the package installed in editable mode, so that changes to the code and
+metadata files apply without installing again. Without conda, use Python 3.11 or 3.12 and run `pip install --editable .`
+in the cloned folder.
+
+NeuroConv is installed from its `main` branch, which holds the DANNCE and HERD features this conversion needs and
+which are not released yet.
+
+## Quick start
+
+Set the data share and output folder paths in the `if __name__ == "__main__":` block of each script, then:
 
 ```bash
-pip install -e .
+python src/olveczky_lab_to_nwb/klibaite_2025/convert_all_sessions.py
+python src/olveczky_lab_to_nwb/klibaite_2025/inspection.py
 ```
 
-## Usage
+The first writes two NWB files per session (one per rat) to the output folder; the second inspects them with NWB
+Inspector and validates their HED annotations. See
+[Converting sessions](src/olveczky_lab_to_nwb/klibaite_2025/docs/converting_sessions.md).
 
-Convert a single rat from a session (writes one NWB file):
+## Documentation
 
-```python
-from olveczky_lab_to_nwb.klibaite_2025_rat.convert_session import session_to_nwb
-from olveczky_lab_to_nwb.klibaite_2025_rat.utils.subject_metadata import get_subject_metadata
-from pathlib import Path
+The conversion pipeline in general, in [docs/](docs/):
 
-rat_log_path = Path("/path/to/ugne_rat_log.xlsx")
-subject_metadata = get_subject_metadata(rat_id="M1", cohort="SCN2A", rat_log_path=rat_log_path)
+- [The conversion pipeline](docs/conversion_pipeline.md): NWB, NeuroConv, the parts of a conversion and the steps from
+  recordings to a public archive.
+- [Building a new conversion pipeline](docs/new_conversion_pipeline.md): converting another experiment to NWB.
 
-session_to_nwb(
-    session_dir_path=Path("/path/to/2022_09_22_M1_M2"),
-    output_dir_path=Path("/path/to/nwb_output"),
-    rat_idx=1,
-    cohort="SCN2A",
-    encounter="SOC1",
-    subject_metadata=subject_metadata,
-    contacts_file_path=Path("/path/to/social_touch/.../skin_contacts_symmetric.h5"),
-    stub_test=True,
-)
-```
+The Klibaite 2025 conversion, in [klibaite_2025/docs/](src/olveczky_lab_to_nwb/klibaite_2025/docs/):
 
-Batch-convert all sessions under a data root (writes two NWB files per session, one per rat):
+- [Data organization](src/olveczky_lab_to_nwb/klibaite_2025/docs/data_organization.md): the data share layout,
+  cohorts, encounter rounds and lab files.
+- [Converting sessions](src/olveczky_lab_to_nwb/klibaite_2025/docs/converting_sessions.md): converting sessions,
+  inspecting and uploading the files, and the output files.
+- [Data streams](src/olveczky_lab_to_nwb/klibaite_2025/docs/data_streams.md): pose, video, skin contacts, task and
+  epoch, and how their times are aligned.
+- [Metadata](src/olveczky_lab_to_nwb/klibaite_2025/docs/metadata.md): editing the metadata file, adding a cohort,
+  HED tags and ontology terms.
+- [Excluded sessions](src/olveczky_lab_to_nwb/klibaite_2025/docs/excluded_sessions.md): the sessions of the data share
+  that are not converted, and why.
 
-```bash
-python -m olveczky_lab_to_nwb.klibaite_2025_rat.convert_all_sessions \
-    --data_root  /path/to/ugne \
-    --output_dir /path/to/nwb_output \
-    --cohorts    SCN2A ARID1B \
-    --rat_log_path /path/to/ugne_rat_log.xlsx
-```
+The notebooks in [notebooks/](notebooks/) stream the files from the EMBER archive or read them from disk:
+[000637_demo.ipynb](notebooks/000637_demo.ipynb) shows each data stream of one rat, and
+[000637_two_subject_demo.ipynb](notebooks/000637_two_subject_demo.ipynb) the two rats of a session together.
 
-Drop `--stub_test` to run a full conversion.
-
-## Repository structure
+## Repository layout
 
 ```text
-src/olveczky_lab_to_nwb/
-└── klibaite_2025_rat/
-    ├── nwbconverter.py
-    ├── convert_session.py
-    ├── convert_all_sessions.py
-    ├── general_metadata.yaml
-    ├── interfaces/
-    │   └── skin_contacts_interface.py
-    ├── utils/
-    │   ├── constants.py
-    │   └── subject_metadata.py
-    └── documentation/
-        ├── conversion_notes.md
-        └── project_track.md
+src/olveczky_lab_to_nwb/klibaite_2025/
+├── convert_session.py        conversion of one rat of one session (social or lone)
+├── convert_all_sessions.py   conversion of all sessions
+├── nwbconverter.py           NWBConverter of the dataset and time alignment
+├── interfaces/               data interfaces (skin contacts, task and epoch)
+├── utils/                    session folders, cohorts and subject metadata from the rat log
+├── inspection.py             NWB Inspector reports, HED validation and inspection summary
+├── upload_to_EMBER.py        organizing and uploading to the EMBER archive
+├── general_metadata.yaml     experiment, conditions (social, lone), skeleton, HED and ontology terms
+└── docs/                     documentation of this conversion
+docs/                         documentation of the conversion pipeline in general
+notebooks/                    example notebooks
 ```
+
+## Citation
+
+If you use these files, please cite [Klibaite et al. (2025)](https://doi.org/10.1016/j.cell.2025.01.044), and
+[NeuroConv](https://github.com/catalystneuro/neuroconv) and [NWB](https://www.nwb.org/) for the conversion.
